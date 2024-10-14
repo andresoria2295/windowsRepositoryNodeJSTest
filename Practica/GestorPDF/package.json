@@ -1,0 +1,19 @@
+{
+  "name": "gestorpdf",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.1",
+    "fs": "^0.0.1-security",
+    "image-size": "^1.1.1",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.13.0"
+  }
+}
