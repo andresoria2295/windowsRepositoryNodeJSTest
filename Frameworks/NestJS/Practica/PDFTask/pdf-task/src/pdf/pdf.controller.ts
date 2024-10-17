@@ -1,3 +1,7 @@
+/* 
+Postman: http://localhost:3000/pdf/upload
+*/
+
 import { Controller, Get, Param, Res, Post, UseInterceptors, UploadedFile } from '@nestjs/common'; 
 import { PdfService } from './pdf.service'; //Importa el servicio `PdfService`, que contiene la lógica para manejar archivos PDF.
 import { Response } from 'express'; //Importa la clase `Response` de Express para manejar las respuestas HTTP.

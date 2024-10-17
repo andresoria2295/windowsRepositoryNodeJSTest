@@ -7,9 +7,10 @@ import { PdfModule } from './pdf/pdf.module'; //Importa el módulo `PdfModule`, 
 import { DatabaseModule } from './database.module'; //Importa el módulo `DatabaseModule`, que gestiona la conexión a la base de datos PostgreSQL.
 import { AppController } from './app.controller'; //Importa el controlador `AppController`, que maneja las solicitudes a nivel de aplicación.
 import { AppService } from './app.service'; //Importa el servicio `AppService`, que contiene la lógica de negocio general de la aplicación.
+import { ReportModule } from './report/report.module'; //Importa el módulo de reportes
 
 @Module({
-  imports: [PdfModule, DatabaseModule], //Importa el `PdfModule` y el `DatabaseModule`, permitiendo que estén disponibles dentro del módulo `AppModule`.
+  imports: [PdfModule, DatabaseModule, ReportModule], //Importa el `PdfModule` y el `DatabaseModule`, permitiendo que estén disponibles dentro del módulo `AppModule`.
   controllers: [AppController], //Registra el controlador `AppController`, que define las rutas y endpoints de la aplicación.
   providers: [AppService], //Registra el servicio `AppService`, que proporciona la lógica de negocio general para la aplicación.
 })
