@@ -1,4 +1,4 @@
-import { Controller, Get, Res, Body, Post } from '@nestjs/common';
+import { Controller, Get, Res, Body, Post, Put, Patch, Param, BadRequestException } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { Response } from 'express';
 
@@ -26,4 +26,25 @@ export class ReportController {
       res.status(500).json({ message: 'Error al crear el usuario', error: error.message });
     }
   }
+
+  @Put('/user/:id')
+  async updateUser(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
+    try {
+      await this.reportService.updateUser(userId, updatedData);
+    } catch (error) {
+      console.error('Error al actualizar el usuario:', error);
+      throw new BadRequestException('Error al actualizar el usuario');
+    }
+  }
+
+  @Patch('/user/:id')
+  async updatePartialUser(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
+    try {
+        await this.reportService.updatePartialUser(userId, updatedData);
+    } catch (error) {
+        console.error('Error al actualizar el usuario:', error);
+        throw new BadRequestException('Error al actualizar el usuario');
+    }
+}
+
 }
