@@ -3,7 +3,7 @@ Método GET:
 
 Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email", 
       	c."Telefono", c."Domicilio", c."Ciudad", 
-       	o."Titulo", o."Empresa", o."Fecha_Inicio"
+       	o."Titulo", o."Empresa", o."Fecha_Inicio", o."Documentacion", o."Nombre_Archivo"
 	FROM "Usuario" u
 	INNER JOIN "Contacto" c ON u."Id_Usuario" = c."Id_Usuario"
 	LEFT JOIN "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario";

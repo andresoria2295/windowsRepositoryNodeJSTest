@@ -14,7 +14,7 @@ async function downloadPDF() {
     await client.connect();
 
     //Recuperar el PDF de la base de datos
-    const res = await client.query('SELECT file_data FROM pdf_files WHERE id = $1', [1]); //Ajusta el ID según tu caso
+    const res = await client.query('SELECT file_data FROM pdf_files WHERE id = $1', [6]); //Ajusta el ID según tu caso
 
     if (res.rows.length > 0) {
       const pdfBuffer = res.rows[0].file_data;
