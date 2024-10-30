@@ -1,5 +1,5 @@
 Método GET: 
--->Lectura de datos: http://localhost:3000/report/user (por web o Postman)
+-->Lectura de datos: http://localhost:3000/report/user (por web o Postman) (en header -> Content-Type application/json)
 
 Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email", 
       	c."Telefono", c."Domicilio", c."Ciudad", 
@@ -8,9 +8,11 @@ Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email",
 	INNER JOIN "Contacto" c ON u."Id_Usuario" = c."Id_Usuario"
 	LEFT JOIN "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario";
 
+	SELECT *FROM "Usuario";
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método POST:
--->Inserción de datos: localhost:3000/report/user (en body -> raw)
+--> Inserción de datos con pdf file: http://localhost:3000/report/user/ (en body -> form-data) (en header -> Content-Type multipart/form-data)
 Postman: {
 {
     "nombre": "Ivana",
@@ -25,11 +27,14 @@ Postman: {
     "ocupacion": {
         "titulo": "Maestra mayor de Obras",
         "empresa": "Particular",
-        "fecha_inicio": null
+        "fecha_inicio": null,
+        "archivo.pdf "
     }
 }
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PUT:
+--> Inserción de datos sin pdf file: http://localhost:3000/report/user/:id (en body -> raw) (en header -> Content-Type application/json)
 {
     "Nombre": "Sergio",
     "Apellido": "Carbonero",
@@ -45,9 +50,16 @@ Método PUT:
     }
   }
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PATCH:
--->Actualización de datos: localhost:3000/report/user/21 (en body -> raw)
+-->Actualización de datos: localhost:3000/report/user/21 (en body -> raw) (en header -> Content-Type application/json)
 Postman: {
     "domicilio": "Gutierrez 1480",
     "ciudad": "Luján - Mendoza"
 }
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Método PATCH file:
+-->Actualización de file: localhost:3000/report/user/21 (en body -> form-data) (en header -> Content-Type multipart/form-data)
+Postman:
+    key--> ocupacion[file]  value-->pdf file

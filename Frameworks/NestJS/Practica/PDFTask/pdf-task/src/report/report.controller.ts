@@ -8,7 +8,7 @@ import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as path from 'path';
 import { diskStorage } from 'multer';
-import { v4 as uuidv4 } from 'uuid'; // Para generar un nombre único
+import { extname } from 'path'; // Importar extname para obtener la extensión del archivo
 
 @Controller('report')
 export class ReportController {
@@ -26,11 +26,11 @@ export class ReportController {
   }
 
   @Post('user')
-  @UseInterceptors(FileInterceptor('ocupacion[file]'))  // Interceptor para manejar el archivo
-  async createUser(@Body() newUserData: any, @UploadedFile() file: Express.Multer.File, @Res() res: Response) {
+  @UseInterceptors(FileInterceptor('ocupacion[file]')) // Interceptor opcional para manejar el archivo
+  async createUser(@Body() newUserData: any, @UploadedFile() file: Express.Multer.File | undefined, @Res() res: Response) {
     try {
       console.log('Archivo recibido:', file);
-      await this.reportService.createUser(newUserData, file);  // Pasamos el archivo al servicio
+      await this.reportService.createUser(newUserData, file); // Pasamos el archivo al servicio
       res.status(201).json({ message: 'Usuario creado exitosamente' });
     } catch (error) {
       console.error('Error detallado:', error); 
@@ -38,25 +38,46 @@ export class ReportController {
     }
   }
   
-  @Put('/user/:id')
-  async updateUser(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
-    try {
-      await this.reportService.updateUser(userId, updatedData);
-    } catch (error) {
-      console.error('Error al actualizar el usuario:', error);
-      throw new BadRequestException('Error al actualizar el usuario');
-    }
+@Put('/user/:id')
+async updateUser(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
+  const { nombre, apellido, fecha_nacimiento, email } = updatedData;
+
+  if (!nombre || !apellido || !fecha_nacimiento || !email) {
+    throw new BadRequestException('Los campos "nombre", "apellido", "fecha_nacimiento" y "email" son obligatorios.');
   }
 
-  @Patch('/user/:id')
-  async updatePartialUser(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
-    try {
-      await this.reportService.updatePartialUser(userId, updatedData);
-    } catch (error) {
-      console.error('Error al actualizar el usuario:', error);
-      throw new BadRequestException('Error al actualizar el usuario');
-    }
+  try {
+    await this.reportService.updateUser(userId, updatedData);
+  } catch (error) {
+    console.error('Error al actualizar el usuario:', error);
+    throw new BadRequestException('Error al actualizar el usuario');
   }
+}
+
+  @Patch('/user/:id')
+  @UseInterceptors(FileInterceptor('ocupacion[file]'))  //Interceptor para manejar el archivo
+  async updateFileUser(
+  @Param('id') userId: number,
+  @Body() updatedData: any,
+  @UploadedFile() file: Express.Multer.File,
+): Promise<void> {
+  try {
+    await this.reportService.updateFileUser(userId, updatedData, file); //Pasa el archivo al servicio
+  } catch (error) {
+    console.error('Error al actualizar el usuario:', error);
+    throw new BadRequestException('Error al actualizar el usuario');
+  }
+}
+
+@Patch('/user/:id/fields')
+async updateUserFields(@Param('id') userId: number, @Body() updatedData: any): Promise<void> {
+  try {
+    await this.reportService.updateUserFields(userId, updatedData);
+  } catch (error) {
+    console.error('Error al actualizar el usuario:', error);
+    throw new BadRequestException('Error al actualizar el usuario');
+  }
+}
 
   @Delete('/user/:id')
   async deleteUser(@Param('id', ParseIntPipe) id: number): Promise<void> {

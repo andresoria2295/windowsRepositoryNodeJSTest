@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,76 +19,73 @@ export class ReportService {
     return result.rows;
   }
   
-  async createUser(newUserData: any, file: Express.Multer.File): Promise<void> {
+  async createUser(newUserData: any, file: Express.Multer.File | undefined): Promise<void> {
     console.log('Datos recibidos:', newUserData);
     console.log('Archivo recibido:', file);
-
+  
     //Desestructura los datos recibidos
     let { nombre, apellido, fecha_nacimiento, email, contraseña, telefono, domicilio, ciudad, pais, ocupacion } = newUserData;
-
+  
     //Normaliza contraseñas mal codificadas
     if (!contraseña && newUserData['contraseÃ±a']) {
       contraseña = newUserData['contraseÃ±a'];
     }
-
+  
     //Valida campos obligatorios
     if (!nombre || !apellido || !fecha_nacimiento || !email || !contraseña || !telefono || !domicilio || !ciudad || !pais) {
       throw new Error('Todos los campos obligatorios deben estar presentes');
     }
-
+  
     const client = await this.pool.connect();
-
+  
     try {
-      await client.query('BEGIN'); // Iniciar transacción
-
+      await client.query('BEGIN'); // Inicia transacción
+  
       //Inserta datos en la tabla "Usuario"
       const userResult = await client.query(
         `INSERT INTO "Usuario" ("Nombre", "Apellido", "Fecha_Nacimiento", "Email", "Contraseña", "Fecha_Creacion") 
          VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING "Id_Usuario"`,
         [nombre, apellido, fecha_nacimiento, email, contraseña]
       );
-
+  
       const usuarioId = userResult.rows[0].Id_Usuario;
-
+  
       //Inserta datos en la tabla "Contacto"
       await client.query(
         `INSERT INTO "Contacto" ("Id_Usuario", "Telefono", "Domicilio", "Ciudad", "Pais") 
          VALUES ($1, $2, $3, $4, $5)`,
         [usuarioId, telefono, domicilio, ciudad, pais]
       );
-
+  
       //Maneja datos de ocupación si se proporcionan
       if (ocupacion) {
         const { titulo, empresa, fecha_inicio } = ocupacion;
         let documentacion = null;
         let nombreArchivo = null;
-
+  
         //Manejar el archivo PDF si se envió
         if (file) {
-          //Validar el tipo de archivo (opcional)
           if (file.mimetype !== 'application/pdf') {
             throw new Error('El archivo debe ser un PDF');
           }
-
+  
           try {
-            //Directorio donde se guardará el archivo
             const uploadDir = path.join(__dirname, '..', '..', 'uploads');
             if (!fs.existsSync(uploadDir)) {
-              fs.mkdirSync(uploadDir, { recursive: true }); // Crear directorio si no existe
+              fs.mkdirSync(uploadDir, { recursive: true });
             }
-
-            //Guarda archivo en el sistema de archivos
+  
             const filePath = path.join(uploadDir, file.originalname);
             fs.writeFileSync(filePath, file.buffer);
-
-            //Leer el archivo en formato buffer para la base de datos
+  
+            //Lee el archivo en formato buffer para la base de datos
             documentacion = fs.readFileSync(filePath);
             nombreArchivo = file.originalname;
           } catch (err) {
             throw new Error('Error al guardar el archivo: ' + err.message);
           }
         }
-
+  
         //Inserta datos en la tabla "Ocupacion"
         await client.query(
           `INSERT INTO "Ocupacion" ("Titulo", "Empresa", "Fecha_Inicio", "Id_Usuario", "Documentacion", "Nombre_Archivo") 
@@ -96,7 +93,7 @@ export class ReportService {
           [titulo, empresa || null, fecha_inicio || null, usuarioId, documentacion, nombreArchivo]
         );
       }
-
+  
       await client.query('COMMIT'); //Confirma transacción
     } catch (error) {
       await client.query('ROLLBACK'); //Revierte cambios si hay un error
@@ -106,10 +103,12 @@ export class ReportService {
       client.release(); //Libera conexión
     }
   }
+  
+
 
   //Método para actualizar todos los campos (UPDATE completo).
   async updateUser(userId: number, updatedData: any): Promise<void> {
-    const { nombre, apellido, fecha_nacimiento, email, telefono, domicilio, ciudad, pais, ocupacion } = updatedData;
+    const { nombre, apellido, fecha_nacimiento, email, contraseña, telefono, domicilio, ciudad, pais, ocupacion } = updatedData;
 
     const client = await this.pool.connect();
 
@@ -122,9 +121,10 @@ export class ReportService {
          SET "Nombre" = $1, 
              "Apellido" = $2, 
              "Fecha_Nacimiento" = $3, 
-             "Email" = $4
-         WHERE "Id_Usuario" = $5`,
-        [nombre, apellido, fecha_nacimiento, email, userId]
+             "Email" = $4,
+             "Contraseña" = $5
+         WHERE "Id_Usuario" = $6`,
+        [nombre, apellido, fecha_nacimiento, email, contraseña, userId]
       );
 
       //Actualiza la tabla Contacto, permitiendo `NULL`.
@@ -162,71 +162,184 @@ export class ReportService {
     }
   }
 
-  //Método para actualización parcial (PATCH).
-  async updatePartialUser(userId: number, updatedData: any): Promise<void> {
+  async updateFileUser(userId: number, updatedData: any, file: Express.Multer.File): Promise<void> {
+    console.log('Datos a actualizar:', updatedData);
+    console.log('Archivo recibido:', file);
+  
+    const client = await this.pool.connect();
+  
+    try {
+      await client.query('BEGIN'); // Iniciar transacción
+  
+      //Prepara la consulta de actualización
+      const updateQuery = `
+        UPDATE "Ocupacion" 
+        SET "Documentacion" = $1, "Nombre_Archivo" = $2 
+        WHERE "Id_Usuario" = $3
+      `;
+  
+      let documentacion = null;
+      let nombreArchivo = null;
+  
+      //Maneja el archivo PDF si se proporcionó
+      if (file) {
+        //Valida el tipo de archivo
+        if (file.mimetype !== 'application/pdf') {
+          throw new Error('El archivo debe ser un PDF');
+        }
+  
+        //Lee el archivo en formato buffer para la base de datos
+        documentacion = file.buffer;
+        nombreArchivo = file.originalname; 
+      }
+  
+      //Ejecuta la actualización
+      const result = await client.query(updateQuery, [documentacion, nombreArchivo, userId]);
+  
+      if (result.rowCount === 0) {
+        console.log(`No se actualizó ninguna fila para el usuario con ID ${userId}`);
+      } else {
+        console.log(`Se actualizó la ocupación para el usuario con ID ${userId}`);
+      }
+  
+      await client.query('COMMIT'); //Confirma transacción
+    } catch (error) {
+      await client.query('ROLLBACK'); //Revierte cambios si hay un error
+      console.error('Error al actualizar ocupacion:', error);
+      throw new Error('Error al actualizar ocupacion: ' + error.message);
+    } finally {
+      client.release(); //Libera conexión
+    }
+  }
+
+  async updateUserFields(userId: number, updatedData: any): Promise<void> {
     const client = await this.pool.connect();
   
     try {
       await client.query('BEGIN');
   
-      const occupationFields: string[] = [];
-      const occupationValues: any[] = [];
+      //Actualiza la tabla Usuario
+      const userUpdateFields: string[] = [];
+      const userUpdateValues: any[] = [];
       let index = 1;
   
-      // Solo añadimos los campos que vienen en updatedData
-      if (updatedData.titulo !== undefined) {
-        occupationFields.push(`"Titulo" = $${index}`);
-        occupationValues.push(updatedData.titulo);
+      if (updatedData.nombre !== undefined) {
+        userUpdateFields.push(`"Nombre" = $${index}`);
+        userUpdateValues.push(updatedData.nombre);
         index++;
       }
-      if (updatedData.empresa !== undefined) {
-        occupationFields.push(`"Empresa" = $${index}`);
-        occupationValues.push(updatedData.empresa);
+      if (updatedData.apellido !== undefined) {
+        userUpdateFields.push(`"Apellido" = $${index}`);
+        userUpdateValues.push(updatedData.apellido);
         index++;
       }
-      if (updatedData.fecha_inicio !== undefined) {
-        occupationFields.push(`"Fecha_Inicio" = $${index}`);
-        occupationValues.push(updatedData.fecha_inicio);
+      if (updatedData.fecha_nacimiento !== undefined) {
+        userUpdateFields.push(`"Fecha_Nacimiento" = $${index}`);
+        userUpdateValues.push(updatedData.fecha_nacimiento);
         index++;
       }
-      if (updatedData.documentacion !== undefined) {
-        occupationFields.push(`"Documentacion" = $${index}`);
-        occupationValues.push(updatedData.documentacion);
+      if (updatedData.email !== undefined) {
+        userUpdateFields.push(`"Email" = $${index}`);
+        userUpdateValues.push(updatedData.email);
+        index++;
+      }
+      if (updatedData.contraseña !== undefined) {
+        userUpdateFields.push(`"Contraseña" = $${index}`);
+        userUpdateValues.push(updatedData.contraseña);
         index++;
       }
   
-      //Se comprueba si ya existe un registro en la tabla "Ocupacion" para este usuario.
+      //Actualiza en la tabla Usuario si hay campos a actualizar
+      if (userUpdateFields.length > 0) {
+        const userUpdateQuery = `UPDATE "Usuario" SET ${userUpdateFields.join(', ')} WHERE "Id_Usuario" = $${index}`;
+        userUpdateValues.push(userId); //Se agrega el ID del usuario para el WHERE
+        await client.query(userUpdateQuery, userUpdateValues);
+      }
+  
+      //Actualiza la tabla Contacto
+      const contactoUpdateFields: string[] = [];
+      const contactoUpdateValues: any[] = [];
+  
+      if (updatedData.telefono !== undefined) {
+        contactoUpdateFields.push(`"Telefono" = $${index}`);
+        contactoUpdateValues.push(updatedData.telefono);
+        index++;
+      }
+      if (updatedData.domicilio !== undefined) {
+        contactoUpdateFields.push(`"Domicilio" = $${index}`);
+        contactoUpdateValues.push(updatedData.domicilio);
+        index++;
+      }
+      if (updatedData.ciudad !== undefined) {
+        contactoUpdateFields.push(`"Ciudad" = $${index}`);
+        contactoUpdateValues.push(updatedData.ciudad);
+        index++;
+      }
+      if (updatedData.pais !== undefined) {
+        contactoUpdateFields.push(`"Pais" = $${index}`);
+        contactoUpdateValues.push(updatedData.pais);
+        index++;
+      }
+  
+      if (contactoUpdateFields.length > 0) {
+        const contactoUpdateQuery = `UPDATE "Contacto" SET ${contactoUpdateFields.join(', ')} WHERE "Id_Usuario" = $${index}`;
+        contactoUpdateValues.push(userId);
+        await client.query(contactoUpdateQuery, contactoUpdateValues);
+      }
+  
+      //Actualizar la tabla Ocupacion
+      const occupationFields: string[] = [];
+      const occupationValues: any[] = [];
+      let occupationIndex = 1;
+  
+      if (updatedData.titulo !== undefined) {
+        occupationFields.push(`"Titulo" = $${occupationIndex}`);
+        occupationValues.push(updatedData.titulo);
+        occupationIndex++;
+      }
+      if (updatedData.empresa !== undefined) {
+        occupationFields.push(`"Empresa" = $${occupationIndex}`);
+        occupationValues.push(updatedData.empresa);
+        occupationIndex++;
+      }
+      if (updatedData.fecha_inicio !== undefined) {
+        occupationFields.push(`"Fecha_Inicio" = $${occupationIndex}`);
+        occupationValues.push(updatedData.fecha_inicio);
+        occupationIndex++;
+      }
+      if (updatedData.documentacion !== undefined) {
+        occupationFields.push(`"Documentacion" = $${occupationIndex}`);
+        occupationValues.push(updatedData.documentacion);
+        occupationIndex++;
+      }
+  
       const occupationCheckQuery = `SELECT * FROM "Ocupacion" WHERE "Id_Usuario" = $1`;
       const occupationCheckResult = await client.query(occupationCheckQuery, [userId]);
   
       if (occupationCheckResult.rows.length > 0) {
-        //Si existe un registro, se actualiza solo los campos proporcionados.
         if (occupationFields.length > 0) {
-          const occupationUpdateQuery = `UPDATE "Ocupacion" SET ${occupationFields.join(', ')} WHERE "Id_Usuario" = $${index}`;
-          occupationValues.push(userId); //Se agrega el ID del usuario para la cláusula WHERE
+          const occupationUpdateQuery = `UPDATE "Ocupacion" SET ${occupationFields.join(', ')} WHERE "Id_Usuario" = $${occupationIndex}`;
+          occupationValues.push(userId);
           await client.query(occupationUpdateQuery, occupationValues);
         }
       } else {
-        //Si no existe un registro, se crea uno nuevo.
-        const occupationInsertFields = occupationFields.map(f => f.split(' ')[0].replace('=', '').trim()).join(', ');
-        const occupationInsertValues = occupationFields.map((_, idx) => `$${idx + 1}`).join(', ');
-        const occupationInsertQuery = `
-          INSERT INTO "Ocupacion" ("Id_Usuario", ${occupationInsertFields})
-          VALUES ($${index}, ${occupationInsertValues})
-        `;
-        occupationValues.push(userId); 
-        await client.query(occupationInsertQuery, occupationValues);
+        const occupationInsertFields = `"Id_Usuario", ${occupationFields.map(f => f.split(' ')[0]).join(', ')}`;
+        const occupationInsertValues = [userId, ...occupationValues];
+        const occupationInsertPlaceholders = occupationInsertValues.map((_, idx) => `$${idx + 1}`).join(', ');
+  
+        const occupationInsertQuery = `INSERT INTO "Ocupacion" (${occupationInsertFields}) VALUES (${occupationInsertPlaceholders})`;
+        await client.query(occupationInsertQuery, occupationInsertValues);
       }
   
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('Error al actualizar ocupacion:', error);
-      throw new Error('Error al actualizar ocupacion: ' + error.message);
+      console.error('Error al actualizar:', error);
+      throw new Error('Error al actualizar: ' + error.message);
     } finally {
       client.release();
     }
-  }
+  }  
 
   //Método para eliminar usuario.
   async deleteUser(userId: number): Promise<void> {
@@ -235,19 +348,19 @@ export class ReportService {
     try {
       await client.query('BEGIN');
   
-      //Primero eliminar la ocupación relacionada si existe
+      //Primero elimina la ocupación relacionada si existe
       await client.query(
         `DELETE FROM "Ocupacion" WHERE "Id_Usuario" = $1`,
         [userId]
       );
   
-      //Luego eliminar el contacto relacionado.
+      //Luego elimina el contacto relacionado.
       await client.query(
         `DELETE FROM "Contacto" WHERE "Id_Usuario" = $1`,
         [userId]
       );
   
-      //Finalmente eliminar el usuario.
+      //Finalmente elimina el usuario.
       await client.query(
         `DELETE FROM "Usuario" WHERE "Id_Usuario" = $1`,
         [userId]
