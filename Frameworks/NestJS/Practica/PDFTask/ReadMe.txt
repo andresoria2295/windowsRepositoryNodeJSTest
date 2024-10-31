@@ -11,6 +11,11 @@ Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email",
 	SELECT *FROM "Usuario";
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Método GET:
+-->Lectura de PDF: Para visualizar: Solicitud GET a http://localhost:3000/report/user/54/pdf?mode=view  (en header -> Content-Type application/pdf)
+	                 Para descargar: Solicitud GET a http://localhost:3000/report/user/54/download-pdf?mode=download (sin header)
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método POST:
 --> Inserción de datos con pdf file: http://localhost:3000/report/user/ (en body -> form-data) (en header -> Content-Type multipart/form-data)
 Postman: {

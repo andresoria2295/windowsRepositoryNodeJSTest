@@ -1,14 +1,14 @@
 import { 
   Controller, Get, Res, Body, Post, Put, Patch, Param, 
   BadRequestException, Delete, ParseIntPipe, UseInterceptors, 
-  UploadedFile, InternalServerErrorException 
+  UploadedFile, InternalServerErrorException , NotFoundException, Query
 } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as path from 'path';
 import { diskStorage } from 'multer';
-import { extname } from 'path'; // Importar extname para obtener la extensión del archivo
+import { extname } from 'path'; //Importa extname para obtener la extensión del archivo
 
 @Controller('report')
 export class ReportController {
@@ -25,12 +25,45 @@ export class ReportController {
     }
   }
 
+  @Get('user/:userId/download-pdf')
+  async downloadUserPDF(@Param('userId') userId: number, @Res() res: Response, @Query('mode') mode: string): Promise<void> {
+    try {
+      console.log("ID de usuario recibido:", userId); // Verifica el ID de usuario
+  
+      const pdfFile = await this.reportService.getUserPDF(userId);
+  
+      if (!pdfFile) {
+        console.error("PDF no encontrado para el usuario con ID:", userId);
+        throw new NotFoundException('El archivo PDF no fue encontrado para este usuario.');
+      }
+  
+      console.log("Archivo PDF encontrado para el usuario:", userId);
+  
+      //Establece los encabezados para la respuesta
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=user_${userId}.pdf`, //Nombre de archivo
+      });
+  
+      if (mode === 'download') {
+        //Fuerza la descarga
+        res.send(pdfFile);
+      } else {
+        //Para vista previa
+        res.send(pdfFile);
+      }
+    } catch (error) {
+      console.error("Error en downloadUserPDF:", error.message);
+      res.status(500).json({ message: 'Error al intentar descargar el PDF' });
+    }
+  }
+
   @Post('user')
-  @UseInterceptors(FileInterceptor('ocupacion[file]')) // Interceptor opcional para manejar el archivo
+  @UseInterceptors(FileInterceptor('ocupacion[file]')) //Intercepción opcional para manejar el archivo
   async createUser(@Body() newUserData: any, @UploadedFile() file: Express.Multer.File | undefined, @Res() res: Response) {
     try {
       console.log('Archivo recibido:', file);
-      await this.reportService.createUser(newUserData, file); // Pasamos el archivo al servicio
+      await this.reportService.createUser(newUserData, file); //Se pasa el archivo al servicio
       res.status(201).json({ message: 'Usuario creado exitosamente' });
     } catch (error) {
       console.error('Error detallado:', error); 

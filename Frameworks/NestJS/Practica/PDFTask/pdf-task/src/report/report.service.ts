@@ -18,6 +18,33 @@ export class ReportService {
     const result = await this.pool.query(query);
     return result.rows;
   }
+
+  //Método para obtención de archivo PDF de un usuario.
+async getUserPDF(userId: number): Promise<Buffer | null> {
+  console.log(`Intentando descargar PDF para el usuario con ID: ${userId}`);
+  
+  const result = await this.pool.query(
+    `SELECT "Documentacion" FROM "Ocupacion" WHERE "Id_Usuario" = $1`,
+    [userId]
+  );
+
+  //Verifica si se encontró un registro
+  if (result.rows.length === 0) {
+    console.log('No se encontró un archivo PDF para este usuario.');
+    return null;
+  }
+
+  const pdfFile = result.rows[0].Documentacion;
+  if (!pdfFile) {
+    console.log('El campo Documentacion está vacío.');
+    return null;
+  }
+
+  console.log('Archivo PDF obtenido de la base de datos:', pdfFile);
+  return pdfFile;  //Asegura que es un buffer almacenado en la BD
+}
+
+  
   
   async createUser(newUserData: any, file: Express.Multer.File | undefined): Promise<void> {
     console.log('Datos recibidos:', newUserData);
