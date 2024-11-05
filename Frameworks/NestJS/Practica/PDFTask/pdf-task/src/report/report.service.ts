@@ -402,4 +402,208 @@ async getUserPDF(userId: number): Promise<Buffer | null> {
       client.release();
     }
   }
+
+  //Reportes de ocupaciones agrupadas por puestos.
+  async getGroupedOccupations(): Promise<any[]> {
+    const query = `
+      SELECT 
+        o."Titulo",
+        COUNT(u."Id_Usuario") AS cantidad_usuarios
+      FROM 
+        "Ocupacion" o
+      JOIN 
+        "Usuario" u ON o."Id_Usuario" = u."Id_Usuario"
+      GROUP BY 
+        o."Titulo";
+    `;
+    const result = await this.pool.query(query);
+    return result.rows; 
+  }
+
+  //Reportes de ocupaciones agrupadas por puestos y empresas.
+  async getOccupationsByTitleAndCompany(): Promise<any[]> {
+    const query = `
+      SELECT 
+        o."Titulo",
+        o."Empresa",
+        COUNT(u."Id_Usuario") AS cantidad_usuarios
+      FROM 
+        "Ocupacion" o
+      JOIN 
+        "Usuario" u ON o."Id_Usuario" = u."Id_Usuario"
+      GROUP BY 
+        o."Titulo", o."Empresa";
+    `;
+    const result = await this.pool.query(query);
+    return result.rows; 
+  }
+
+  //Reporte de Usuarios por Ocupación.
+  async getUsersByOccupation(): Promise<any[]> {
+    const query = `
+      SELECT 
+        u."Nombre",
+        u."Apellido",
+        o."Titulo",
+        o."Empresa"
+      FROM 
+        "Usuario" u
+      JOIN 
+        "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario"
+      ORDER BY 
+        o."Titulo";
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+
+  //Reportes de usuarios nuevos por mes.
+  async getMonthlyNewUsers(): Promise<any[]> {
+    const query = `
+    SELECT 
+    DATE_TRUNC('month', u."Fecha_Creacion") AS mes,
+    COUNT(*) AS cantidad_usuarios
+    FROM 
+    "Usuario" u
+    GROUP BY 
+    mes
+    ORDER BY 
+    mes DESC;
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+
+  //Reporte de Ocupaciones sin Documentación.
+  async getUndocumented(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre",
+      u."Apellido",
+      o."Titulo"
+    FROM 
+      "Ocupacion" o
+    JOIN 
+      "Usuario" u ON o."Id_Usuario" = u."Id_Usuario"
+    WHERE 
+      o."Documentacion" IS NULL;
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+
+  //Reporte de Usuarios informales en la actualidad.
+  async getInformalUsers(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido", 
+      o."Titulo", 
+      o."Empresa"
+    FROM 
+      "Usuario" u
+    JOIN 
+      "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario"
+    WHERE 
+      o."Empresa" = 'Particular'
+    GROUP BY 
+      u."Nombre", 
+      u."Apellido", 
+      o."Titulo", 
+      o."Empresa";
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+
+  //Reporte de Usuarios informales desde que fueron matriculados (sin otras empresas registradas)
+  async getPerpetualInformalUsers(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido"
+    FROM 
+      "Usuario" u
+    JOIN 
+      "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario"
+    GROUP BY 
+      u."Id_Usuario"
+    HAVING 
+      COUNT(CASE WHEN o."Empresa" <> 'Particular' THEN 1 END) = 0;
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+
+  //Reporte de Usuarios mayores de 50 años.
+  async getOlderUsers(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido", 
+      u."Fecha_Nacimiento"
+    FROM 
+      "Usuario" u
+    WHERE 
+    DATE_PART('year', AGE(u."Fecha_Nacimiento")) > 45;
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+  //Reporte de Usuarios menores de 35 años.
+  async getYoungerUsers(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido", 
+      u."Fecha_Nacimiento"
+    FROM 
+      "Usuario" u
+    WHERE 
+    DATE_PART('year', AGE(u."Fecha_Nacimiento")) < 35;
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+  //Reporte de Usuarios que comenzaron a trabajar desde el año 2015.
+  async getStartWorking(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido", 
+      o."Titulo", 
+      o."Empresa", 
+      o."Fecha_Inicio"
+    FROM 
+      "Usuario" u
+    JOIN 
+      "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario"
+    WHERE 
+      o."Fecha_Inicio" > '2014-12-31'; 
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
+  //Reporte de Usuarios que comenzaron a trabajar en la formalidad ordenados en forma creciente.
+  async getFormalJob(): Promise<any[]> {
+    const query = `
+    SELECT 
+      u."Nombre", 
+      u."Apellido", 
+      o."Titulo", 
+      o."Empresa", 
+      o."Fecha_Inicio"
+    FROM 
+      "Usuario" u
+    JOIN 
+      "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario"
+    WHERE 
+      o."Titulo" IS NOT NULL AND o."Empresa" IS NOT NULL  -- Filtra solo ocupaciones formales
+    ORDER BY 
+      o."Fecha_Inicio" ASC; 
+    `;
+    const result = await this.pool.query(query);
+    return result.rows;
+  }
 }
+
