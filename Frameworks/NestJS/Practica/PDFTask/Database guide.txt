@@ -1,0 +1,35 @@
+-- Inicia una transacción para asegurar que todos los datos se inserten o se reviertan en caso de error
+BEGIN;
+
+-- Paso 1: Insertar en la tabla Usuario
+INSERT INTO "Usuario" ("Nombre", "Apellido", "Fecha_Nacimiento", "Email", "Contraseña", "Fecha_Creacion")
+VALUES ('Lucas', 'Prado', '1990-01-01', 'l.prado@gmail.com', 'lucas.90', NOW())
+RETURNING "Id_Usuario";
+
+-- Asumiendo que el "Id_Usuario" devuelto es 106
+-- En un entorno de programación, esta ID debe almacenarse y reutilizarse en los pasos siguientes.
+
+-- Paso 2: Insertar en la tabla Contacto
+INSERT INTO "Contacto" ("Id_Usuario", "Telefono", "Domicilio", "Ciudad", "Pais")
+VALUES (106, '2615803916', 'Estrada 392', 'Ciudad - Mendoza', 'Argentina');
+
+-- Paso 3: Insertar en la tabla Formacion
+INSERT INTO "Formacion" ("Nombre", "Descripcion", "Nivel", "Institucion", "Duracion", "Fecha_Titulo", "Activo", "Identificador_Archivo")
+VALUES ('Técnico de Software', 'Especialización en desarrollo de software', 'Terciario', 'ITU', '4 años', '2014-12-15', true, 'identificador123')
+RETURNING "Id_Formacion";
+
+-- Asumiendo que el "Id_Formacion" devuelto es 108
+
+-- Paso 4: Insertar en la tabla Empresa
+INSERT INTO "Empresa" ("Nombre", "Razon_Social", "Direccion", "Ciudad", "Pais", "Telefono", "Email", "Sitio_Web", "Industria", "Estado")
+VALUES ('File', 'File SRL', 'Morón 730', 'Ciudad - Mendoza', 'Argentina', '2614202679', 'filesrl@gmail.com', 'www.filesrl.com', 'Logística', true)
+RETURNING "Id_Empresa";
+
+-- Asumiendo que el "Id_Empresa" devuelto es 109
+
+-- Paso 5: Insertar en la tabla Empleo (relacionada con Usuario, Empresa y Formacion)
+INSERT INTO "Empleo" ("Id_Usuario", "Id_Empresa", "Id_Formacion", "Fecha_Inicio", "Fecha_Fin", "Posicion", "Activo")
+VALUES (106, 109, 108, '2015-01-01', '2017-05-28', 'Desarrollador Senior', true);
+
+-- Si todas las inserciones son exitosas, confirma la transacción
+COMMIT;

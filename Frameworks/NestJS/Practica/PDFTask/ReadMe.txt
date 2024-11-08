@@ -18,6 +18,7 @@ Método GET:
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método POST:
 --> Inserción de datos con pdf file: http://localhost:3000/report/user/ (en body -> form-data) (en header -> Content-Type multipart/form-data)
+-->NUEVA Inserción de datos: http://localhost:3000/user/create-user (en body -> form-data) (en header -> Content-Type application/json)
 Postman: {
 {
     "nombre": "Ivana",
@@ -69,6 +70,9 @@ Método PATCH file:
 Postman:
     key--> ocupacion[file]  value-->pdf file
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Método DELETE file:
+-->Eliminación de registro: http://localhost:3000/user/delete-user/126 (none)
 
 -----------------------------------------------------------------------------------
 Reportes de ocupaciones agrupadas por puestos (GET -> http://localhost:3000/report/occupations/grouped)(en header -> Content-Type application/json)
@@ -233,11 +237,85 @@ WHERE
 ORDER BY 
     o."Fecha_Inicio" ASC; 
 
+------------------------------------------------------------------------------------------------------------------------------
+Usuario: contiene los datos personales del usuario.
+Ocupacion: contiene la relación de los usuarios con sus ocupaciones, vinculada con Empresa y Titulo mediante claves foráneas.
+Empresa: contiene los datos específicos de cada empresa.
+Titulo: contiene el tipo de título de cada usuario.
+Empleo: es una tabla intermedia que conecta Usuario, Ocupacion y Empresa en un registro histórico.
+
+------------------------------------------------------------------------------------------------------------------------------
+Tabla Usuario
+Id_Usuario (PK): ID único para cada usuario
+Nombre: Nombre del usuario
+Apellido: Apellido del usuario
+Fecha_Nacimiento: Fecha de nacimiento del usuario
+Email: Dirección de correo electrónico del usuario
+Contraseña: Contraseña encriptada del usuario
+Fecha_Creacion: Fecha de alta del usuario
 
 
+Tabla Contacto
+Id_Contacto (PK): ID único para cada contacto
+Id_Usuario (FK): ID del usuario relacionado
+Telefono: Número de teléfono del usuario
+Domicilio: Dirección del usuario
+Ciudad: Ciudad de residencia
+Pais: País de residencia
 
+Tabla Formacion
+Id_Formacion (PK): ID único para cada formación o título
+Nombre: Nombre del título o formación (ej. "Técnico Automotriz")
+Descripcion:
+Nivel: Tipo de estudios (ej. "Bachillerato", "Terciario")
+Institucion: Institución donde se obtuvo el título
+Duracion: Duración de formación
+Fecha_Titulo: Fecha en que se obtuvo el título
+Activo: Titulo adquirido y en mano
+Identificador_archivo: UUID de archivo PDF
 
+Tabla Empresa
+Id_Empresa (PK): ID único para cada empresa
+Nombre: Nombre de la empresa
+Razon_Social: Nombre jurídico de la empresa
+Direccion: Dirección de la empresa
+Ciudad: Ciudad de residencia
+Pais: País de residencia
+Telefono: Teléfono de la empresa
+Email: Correo electrónico de contacto de la empresa
+Sitio_Web: Sitio web de la empresa
+Industria: Sector/área en la que opera la empresa (ej. "Tecnología", "Educación", etc.)
+Estado: Operando actualmente
 
+Tabla Empleo
+Id_Empleo (PK): ID único para cada registro de empleo
+Id_Usuario (FK): ID del usuario relacionado
+Id_Empresa (FK): ID de la empresa relacionada
+Id_Formacion (FK): ID de la formación/título relacionado
+Fecha_Inicio: Fecha en que el usuario comenzó a trabajar en la empresa
+Fecha_Fin: Fecha en que el usuario terminó de trabajar en la empresa (opcional)
+Posicion: Puesto o cargo del usuario en la empresa (ej. "Desarrollador")
+Activo: Si el usuario está trabajando activamente
+
+------------------------------------------------------------------------------------------------------------------------------
+Datos Opcionales
+
+Empleo:
+fecha_fin: La fecha de fin del empleo puede ser opcional si el empleo aún está activo.
+posicion: Puede ser opcional si no se desea especificarla al crear el usuario.
+activo: Aunque se puede establecer un valor predeterminado (true), también podría omitirse.
+
+Formación:
+descripcion: Descripción de la formación, si es solo un breve texto explicativo.
+identificador_archivo: Podría ser opcional si aún no se tiene un archivo relacionado con la formación.
+fecha_titulo: Si aún no se ha obtenido un título o está en proceso, este campo puede ser opcional.
+
+Empresa:
+sitio_web: Puede ser opcional si no se desea especificar un sitio web.
+telefono: Podría omitirse si no es relevante al momento.
+industria: Si no se desea especificar la industria de la empresa inicialmente.
+
+------------------------------------------------------------------------------------------------------------------------------
 
 edificar una api diferente a la actual en la que se cree/guarde y recupere archivos. desde la actual hacer get y adquirir tal archivo 
 respuesta de api 2: devolver un uuid esto es lo q guarda en la bd y se emplea para luego tener acceso y ver el pdf consultando a la api2. El pdf se guarda en disco 

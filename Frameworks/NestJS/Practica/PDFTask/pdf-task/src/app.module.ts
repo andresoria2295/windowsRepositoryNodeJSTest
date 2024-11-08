@@ -8,10 +8,11 @@ import { DatabaseModule } from './database.module'; //Importa el módulo `Databa
 import { AppController } from './app.controller'; //Importa el controlador `AppController`, que maneja las solicitudes a nivel de aplicación.
 import { AppService } from './app.service'; //Importa el servicio `AppService`, que contiene la lógica de negocio general de la aplicación.
 import { ReportModule } from './report/report.module'; //Importa el módulo de reportes
+import { UserModule } from './user/user.module'; //Importa el módulo de usuarios.
 import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
-  imports: [PdfModule, DatabaseModule, ReportModule, MulterModule.register({
+  imports: [PdfModule, DatabaseModule, ReportModule, UserModule, MulterModule.register({
     dest: './uploads', //Directorio donde se almacenan temporalmente los archivos subidos
   }),
   ], //Importa el `PdfModule` y el `DatabaseModule`, permitiendo que estén disponibles dentro del módulo `AppModule`.
