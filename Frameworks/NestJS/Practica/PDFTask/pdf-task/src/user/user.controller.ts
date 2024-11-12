@@ -9,30 +9,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get('user')
-  async getUser(@Res() res: Response) {
-    try {
-      const report = await this.userService.getUser();
-      res.status(200).json(report);
-    } catch (error) {
-      console.error('Error detallado en getUserReport:', error);
-      res.status(500).json({ message: 'Error al generar el reporte' });
-    }
-  }
-
-  //Método GET para obtener un usuario por ID
-  @Get('/get-user/:id')
-  async getSpecificUser(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
-    try {
-      // Aquí se llama al método getSpecificUser correctamente
-      const userData = await this.userService.getSpecificUser(id);
-      res.status(HttpStatus.OK).json(userData);
-    } catch (error) {
-      console.error('Error al obtener los datos del usuario:', error);
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error al obtener los datos del usuario' });
-    }
-  }
-
   @Post('create-user')
   @UseInterceptors(FileInterceptor('ocupacion[file]')) //Intercepción opcional para manejar el archivo
   async createUser(@Body() newUserData: any, @UploadedFile() file: Express.Multer.File | undefined, @Res() res: Response) {
@@ -46,6 +22,52 @@ export class UserController {
       res.status(500).json({ message: 'Error al crear el usuario.', error: error.message });
     }
   }
+
+  @Get('get-user')
+    async getAllUsers(@Res() res: Response) {
+        try {
+            const users = await this.userService.getAllUsers();
+            res.status(200).json(users);
+        } catch (error) {
+            console.error('Error al obtener todos los usuarios:', error);
+            res.status(500).json({ message: 'Error al obtener todos los usuarios.' });
+        }
+    }
+
+  //Método GET para obtener un usuario por ID
+  @Get('/get-user/:id')
+  async getSpecificUser(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
+    try {
+      // Aquí se llama al método getSpecificUser correctamente
+      const userData = await this.userService.getSpecificUser(id);
+      res.status(HttpStatus.OK).json(userData);
+    } catch (error) {
+      console.error('Error al obtener los datos del usuario:', error);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error al obtener los datos del usuario.' });
+    }
+  }
+
+  @Patch('update-user/fields/:id')
+    async updateUserFields(@Param('id') userId: number, @Body() data: any): Promise<any> {
+        try {
+            await this.userService.updateUserFields(userId, data);
+            return { message: 'Campos actualizados correctamente.' };
+        } catch (error) {
+            console.error('Error en updateUser:', error);
+            throw new BadRequestException('Error al actualizar el usuario.');
+        }
+    }
+
+  @Put('update-user/:id')
+    async updateUser(@Param('id') userId: number, @Body() updatedData: any): Promise<any> {
+      try {
+        await this.userService.updateUser(userId, updatedData);
+        return { message: 'Usuario actualizado correctamente.' };
+      } catch (error) {
+        console.error('Error al actualizar el usuario:', error);
+        throw new BadRequestException('Error al actualizar el usuario.');
+      }
+    }
 
   @Delete('/delete-user/:id')
   async deleteUser(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {

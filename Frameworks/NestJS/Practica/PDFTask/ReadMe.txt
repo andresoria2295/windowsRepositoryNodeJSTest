@@ -1,5 +1,5 @@
 Método GET: 
--->Lectura de datos: http://localhost:3000/report/user (por web o Postman) (en header -> Content-Type application/json)
+-->Lectura de datos: http://localhost:3000/user/get-user (por web o Postman) (en header -> Content-Type application/json)
 
 Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email", 
       	c."Telefono", c."Domicilio", c."Ciudad", 
@@ -8,7 +8,7 @@ Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email",
 	INNER JOIN "Contacto" c ON u."Id_Usuario" = c."Id_Usuario"
 	LEFT JOIN "Ocupacion" o ON u."Id_Usuario" = o."Id_Usuario";
 
-	SELECT *FROM "Usuario";
+Query: 	SELECT * FROM "Usuario" ORDER BY "Fecha_Creacion" DESC
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método GET:
@@ -20,48 +20,140 @@ Método POST:
 --> Inserción de datos con pdf file: http://localhost:3000/report/user/ (en body -> form-data) (en header -> Content-Type multipart/form-data)
 -->NUEVA Inserción de datos: http://localhost:3000/user/create-user (en body -> form-data) (en header -> Content-Type application/json)
 Postman: {
-{
-    "nombre": "Ivana",
-    "apellido": "Baena",
-    "fecha_nacimiento": "1981-11-16",
-    "email": "ivana.baena@gmail.com",
-    "contraseña": "ivana.81",
-    "telefono": "2617649135",
-    "domicilio": "Bermejo 76",
-    "ciudad": "Las Heras - Mendoza",
+  "nombre": "Viviana",
+  "apellido": "Arena",
+  "fecha_nacimiento": "1965-09-29",
+  "email": "viviana.arena@gmail.com",
+  "contraseña": "viviana.77",
+  "telefono": "2615402819",
+  "domicilio": "Maipú 293",
+  "ciudad": "Godoy Cruz - Mendoza",
+  "pais": "Argentina",
+  "formacion": {
+    "nombre": "Técnica de Laboratorio",
+    "descripcion": "",
+    "nivel": "Terciario",
+    "institucion": "Instituto Balseiro",
+    "duracion": "4 años",
+    "fecha_titulo": "1988-05-30",
+    "activo": true,
+    "identificador_archivo": "identificador819"
+  },
+  "empresa": {
+    "nombre": "FUESMEN",
+    "razon_social": "FUESMEN",
+    "direccion": "Garibaldi 826",
+    "ciudad": "Ciudad - Mendoza",
     "pais": "Argentina",
-    "ocupacion": {
-        "titulo": "Maestra mayor de Obras",
-        "empresa": "Particular",
-        "fecha_inicio": null,
-        "archivo.pdf "
-    }
+    "telefono": "2614201673",
+    "email": "fuesmen@gmail.com",
+    "sitio_web": "www.fuesmen.com",
+    "industria": "",
+    "estado": true
+  },
+  "empleo": {
+    "fecha_inicio": "2003-02-25",
+    "fecha_fin": "2022-11-30",
+    "posicion": "Jefe de área",
+    "activo": false
+  }
 }
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PUT:
---> Inserción de datos sin pdf file: http://localhost:3000/report/user/:id (en body -> raw) (en header -> Content-Type application/json)
+--> Inserción de datos: http://localhost:3000/update-user/:id (en body -> raw) (en header -> Content-Type application/json)
 {
-    "Nombre": "Sergio",
-    "Apellido": "Carbonero",
-    "Fecha_Nacimiento": "1975-12-25T03:00:00.000Z",
-    "Email": "s.carbonero@gmail.com",
-    "Telefono": "2634697615",
-    "Domicilio": "Yapeyu 41",
-    "Ciudad": "Junin - Mendoza",
-    "Ocupacion":{
-        "Titulo": "Técnico Electricista",
-        "Empresa": "Edeste",
-        "Fecha_Inicio": "2016-03-01"
-    }
+  "nombre": "Estela",
+  "apellido": "Cardenas",
+  "fecha_nacimiento": "1968-12-01",
+  "email": "estela.cardenas@gmail.com",
+  "contraseña": "estela.68",
+  "telefono": "26224753068",
+  "domicilio": "Paramillos 536",
+  "ciudad": "Tupungato - Mendoza",
+  "pais": "Argentina",
+  "formacion": {
+    "nombre": "Técnica de Diagnóstico por Imágenes",
+    "descripcion": "",
+    "nivel": "Terciario",
+    "institucion": "Instituto Valle de Uco",
+    "duracion": "4 años",
+    "fecha_titulo": "1993-07-27",
+    "activo": true,
+    "identificador_archivo": "identificador068"
+  },
+  "empresa": {
+    "nombre": "Terrazas España",
+    "razon_social": "Terrazas España SRL",
+    "direccion": "España 826",
+    "ciudad": "Godoy Cruz - Mendoza",
+    "pais": "Argentina",
+    "telefono": "2614201673",
+    "email": "terrazas.españa@gmail.com",
+    "sitio_web": "www.terrazasespaña.com",
+    "industria": "",
+    "estado": true
+  },
+  "empleo": {
+    "fecha_inicio": "2003-02-25",
+    "fecha_fin": "",
+    "posicion": "Jefe de área",
+    "activo": true
   }
+}
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PATCH:
--->Actualización de datos: localhost:3000/report/user/21 (en body -> raw) (en header -> Content-Type application/json)
+-->Actualización de datos: localhost:3000/user/update-user/fields/:id (en body -> raw) (en header -> Content-Type application/json)
 Postman: {
-    "domicilio": "Gutierrez 1480",
-    "ciudad": "Luján - Mendoza"
+  "usuario":{
+    "nombre": "Micaela",
+    "apellido": "Hernández",
+    "fecha_nacimiento": "1996-09-19",
+    "email": "micaela.hernandez@gmail.com",
+    "contraseña": "micaela.96"
+  },
+  "contacto":{
+    "telefono": "2615403171",
+    "domicilio": "Perú 90",
+    "ciudad": "Godoy Cruz - Mendoza",
+    "pais": "Argentina"
+  },
+  "formacion": {
+    "nombre": "Técnica en Diagnóstico por Imágenes",
+    "descripcion": "",
+    "nivel": "Terciario",
+    "institucion": "UNC",
+    "duracion": "4 años",
+    "fecha_titulo": "2018-08-30",
+    "activo": true,
+    "identificador_archivo": "identificador171"
+  },
+  "empresa": {
+    "nombre": "Radiología Mendoza",
+    "razon_social": "Radiología MZA",
+    "direccion": "España 1857",
+    "ciudad": "Ciudad - Mendoza",
+    "pais": "Argentina",
+    "telefono": "2614208261",
+    "email": "radiologia.mza@gmail.com",
+    "sitio_web": "www.radiogmza.com",
+    "industria": "Salud",
+    "estado": true
+  },
+  "empleo": {
+    "fecha_inicio": "2020-04-15",
+    "fecha_fin": "",
+    "posicion": "",
+    "activo": true
+  }
+}
+
+{
+  "usuario":{
+    "Fecha_Nacimiento": "1996-09-20",
+    "contraseña": "micaela.96"
+  }
 }
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
