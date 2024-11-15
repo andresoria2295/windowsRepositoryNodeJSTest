@@ -432,6 +432,9 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
     } = updatedData;
   
     try {
+      console.log('Actualizando usuario con ID:', userId);
+      console.log('Datos a actualizar:', updatedData);
+  
       // 1. Actualizar la tabla Usuario
       const userQuery = `
         UPDATE "Usuario"
@@ -439,6 +442,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
         WHERE "Id_Usuario" = $6
       `;
       const userValues = [nombre, apellido, email, fecha_nacimiento, contraseña, userId];
+      console.log('Ejecutando consulta para Usuario:', userQuery, userValues);
       await this.pool.query(userQuery, userValues);
   
       // 2. Actualizar la tabla Contacto
@@ -449,91 +453,129 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
           WHERE "Id_Usuario" = $5
         `;
         const contactoValues = [telefono, domicilio, ciudad, pais, userId];
+        console.log('Ejecutando consulta para Contacto:', contactoQuery, contactoValues);
         await this.pool.query(contactoQuery, contactoValues);
       }
   
-      // 3. Verificar si el usuario tiene un empleo y actualizar o insertar
-      if (empleo) {
+        // 3. Verificar si el usuario tiene un empleo y actualizar o insertar
+        let empleoId: number | null = null;
+        if (empleo) {
         let { fecha_inicio, fecha_fin, posicion, activo } = empleo;
-  
-        // Si fecha_fin está vacío, convertirlo a null
+
+        // Conversión de campos vacíos a NULL
         if (fecha_fin === '') {
-          console.log('Fecha fin es vacío, se actualizará como null');
-          fecha_fin = null;
+            console.log('Campo "fecha_fin" vacío, lo convirtiendo a NULL');
+            fecha_fin = null;
         }
-  
-        // Verificar si el usuario ya tiene un empleo registrado
+        if (posicion === '') {
+            console.log('Campo "posicion" vacío, lo convirtiendo a NULL');
+            posicion = null;
+        }
+
+        console.log('Verificando si el usuario tiene un empleo existente...');
         const existingEmpleo = await this.pool.query(
-          `SELECT "Id_Empleo" FROM "Empleo" WHERE "Id_Usuario" = $1 LIMIT 1`,
-          [userId]
+            `SELECT "Id_Empleo" FROM "Empleo" WHERE "Id_Usuario" = $1 LIMIT 1`,
+            [userId]
+        );
+
+        if (existingEmpleo.rows.length > 0) {
+            // Si existe un empleo, actualizarlo
+            console.log('Empleo existente encontrado, actualizando...');
+            empleoId = existingEmpleo.rows[0]["Id_Empleo"]; // Accede al campo correctamente
+        
+            const empleoQuery = `
+                UPDATE "Empleo"
+                SET "Fecha_Inicio" = $1, "Fecha_Fin" = $2, "Posicion" = $3, "Activo" = $4
+                WHERE "Id_Empleo" = $5
+            `;
+            const empleoValues = [fecha_inicio, fecha_fin, posicion, activo, empleoId];
+            console.log('Ejecutando consulta para Empleo (actualización):', empleoQuery, empleoValues);
+            await this.pool.query(empleoQuery, empleoValues);
+        } else {
+            // Si no existe un empleo, insertar uno nuevo
+            console.log('No se encontró empleo existente, insertando uno nuevo...');
+            const empleoInsertQuery = `
+                INSERT INTO "Empleo" ("Fecha_Inicio", "Fecha_Fin", "Posicion", "Activo", "Id_Usuario")
+                VALUES ($1, $2, $3, $4, $5) RETURNING "Id_Empleo"
+            `;
+            const empleoValues = [fecha_inicio, fecha_fin, posicion, activo, userId];
+            console.log('Ejecutando consulta para Empleo (inserción):', empleoInsertQuery, empleoValues);
+            const result = await this.pool.query(empleoInsertQuery, empleoValues);
+            empleoId = result.rows[0]["Id_Empleo"]; // Accede al campo correctamente
+        }        
+        }
+
+      // 4. Insertar o actualizar la tabla Formacion
+      if (formacion) {
+        const { nombre: nombreFormacion, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo } = formacion;
+  
+        // Verificar si la formación ya está registrada
+        const existingFormacion = await this.pool.query(
+          `SELECT "Id_Formacion" FROM "Formacion" WHERE "Id_Formacion" = $1 LIMIT 1`,
+          [empleoId]
         );
   
-        let empleoId: number;
-        if (existingEmpleo.rows.length > 0) {
-          // Si el empleo existe, actualizarlo
-          empleoId = existingEmpleo.rows[0].id_empleo;
-          const empleoQuery = `
-            UPDATE "Empleo"
-            SET "Fecha_Inicio" = $1, "Fecha_Fin" = $2, "Posicion" = $3, "Activo" = $4
-            WHERE "Id_Empleo" = $5
+        if (existingFormacion.rows.length > 0) {
+          // Si la formación existe, actualizarla
+          const formacionQuery = `
+            UPDATE "Formacion"
+            SET "Nombre" = $1, "Descripcion" = $2, "Nivel" = $3, "Institucion" = $4, "Duracion" = $5, "Fecha_Titulo" = $6, "Activo" = $7, "Identificador_Archivo" = $8
+            WHERE "Id_Formacion" = $9
           `;
-          const empleoValues = [fecha_inicio, fecha_fin, posicion, activo, empleoId];
-          await this.pool.query(empleoQuery, empleoValues);
+          const formacionValues = [
+            nombreFormacion, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo,
+            existingFormacion.rows[0].id_formacion
+          ];
+          console.log('Ejecutando consulta para Formacion (actualización):', formacionQuery, formacionValues);
+          await this.pool.query(formacionQuery, formacionValues);
         } else {
-          // Si el empleo no existe, insertarlo
-          const empleoInsertQuery = `
-            INSERT INTO "Empleo" ("Fecha_Inicio", "Fecha_Fin", "Posicion", "Activo", "Id_Usuario")
-            VALUES ($1, $2, $3, $4, $5) RETURNING "Id_Empleo"
-          `;
-          const empleoValues = [fecha_inicio, fecha_fin, posicion, activo, userId];
-          const result = await this.pool.query(empleoInsertQuery, empleoValues);
-          empleoId = result.rows[0].id_empleo;
-        }
-  
-        // 4. Insertar o actualizar la tabla Formacion
-        if (formacion) {
-          const { nombre: nombreFormacion, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo } = formacion;
-  
-          // Insertar o actualizar formación vinculada al empleo
+          // Si no existe la formación, insertarla
           const formacionInsertQuery = `
             INSERT INTO "Formacion" ("Nombre", "Descripcion", "Nivel", "Institucion", "Duracion", "Fecha_Titulo", "Activo", "Identificador_Archivo")
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "Id_Formacion"
           `;
           const formacionValues = [nombreFormacion, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo];
-          const resultFormacion = await this.pool.query(formacionInsertQuery, formacionValues);
-          const formacionId = resultFormacion.rows[0].id_formacion;
-  
-          // Actualizar el registro de empleo con la formación asociada
-          const updateEmpleoFormacionQuery = `
-            UPDATE "Empleo"
-            SET "Id_Formacion" = $1
-            WHERE "Id_Empleo" = $2
-          `;
-          await this.pool.query(updateEmpleoFormacionQuery, [formacionId, empleoId]);
+          console.log('Ejecutando consulta para Formacion (inserción):', formacionInsertQuery, formacionValues);
+          await this.pool.query(formacionInsertQuery, formacionValues);
         }
+      }
   
-        // 5. Insertar o actualizar la tabla Empresa
-        if (empresa) {
-          const { nombre: nombreEmpresa, razon_social, direccion, ciudad: ciudadEmpresa, pais: paisEmpresa, telefono: telefonoEmpresa, email: emailEmpresa, sitio_web, industria, estado } = empresa;
+      // 5. Insertar o actualizar la tabla Empresa
+      if (empresa) {
+        const { nombre: nombreEmpresa, razon_social, direccion, ciudad: ciudadEmpresa, pais: paisEmpresa, telefono: telefonoEmpresa, email: emailEmpresa, sitio_web, industria, estado } = empresa;
   
-          // Insertar o actualizar empresa vinculada al empleo
+        // Verificar si la empresa ya está registrada
+        const existingEmpresa = await this.pool.query(
+          `SELECT "Id_Empresa" FROM "Empresa" WHERE "Id_Empresa" = $1 LIMIT 1`,
+          [empleoId]
+        );
+  
+        if (existingEmpresa.rows.length > 0) {
+          // Si la empresa existe, actualizarla
+          const empresaQuery = `
+            UPDATE "Empresa"
+            SET "Nombre" = $1, "Razon_Social" = $2, "Direccion" = $3, "Ciudad" = $4, "Pais" = $5, "Telefono" = $6, "Email" = $7, "Sitio_Web" = $8, "Industria" = $9, "Estado" = $10
+            WHERE "Id_Empresa" = $11
+          `;
+          const empresaValues = [
+            nombreEmpresa, razon_social, direccion, ciudadEmpresa, paisEmpresa, telefonoEmpresa, emailEmpresa, sitio_web, industria, estado,
+            existingEmpresa.rows[0].id_empresa
+          ];
+          console.log('Ejecutando consulta para Empresa (actualización):', empresaQuery, empresaValues);
+          await this.pool.query(empresaQuery, empresaValues);
+        } else {
+          // Si no existe la empresa, insertarla
           const empresaInsertQuery = `
             INSERT INTO "Empresa" ("Nombre", "Razon_Social", "Direccion", "Ciudad", "Pais", "Telefono", "Email", "Sitio_Web", "Industria", "Estado")
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING "Id_Empresa"
           `;
           const empresaValues = [nombreEmpresa, razon_social, direccion, ciudadEmpresa, paisEmpresa, telefonoEmpresa, emailEmpresa, sitio_web, industria, estado];
-          const resultEmpresa = await this.pool.query(empresaInsertQuery, empresaValues);
-          const empresaId = resultEmpresa.rows[0].id_empresa;
-  
-          // Actualizar el registro de empleo con la empresa asociada
-          const updateEmpleoEmpresaQuery = `
-            UPDATE "Empleo"
-            SET "Id_Empresa" = $1
-            WHERE "Id_Empleo" = $2
-          `;
-          await this.pool.query(updateEmpleoEmpresaQuery, [empresaId, empleoId]);
+          console.log('Ejecutando consulta para Empresa (inserción):', empresaInsertQuery, empresaValues);
+          await this.pool.query(empresaInsertQuery, empresaValues);
         }
       }
+  
+      console.log('Actualización completada.');
     } catch (error) {
       console.error('Error al actualizar el usuario y sus relaciones:', error);
       throw new BadRequestException('Error al actualizar el usuario y sus relaciones');
