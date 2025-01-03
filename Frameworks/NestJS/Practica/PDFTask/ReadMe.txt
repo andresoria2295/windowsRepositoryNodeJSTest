@@ -10,6 +10,57 @@ Query:	SELECT u."Nombre", u."Apellido", u."Fecha_Nacimiento", u."Email",
 
 Query: 	SELECT * FROM "Usuario" ORDER BY "Fecha_Creacion" DESC
 
+QUERY DIRECTA: 	
+SELECT 
+    "u"."Id_Usuario",
+    "u"."Nombre" AS "Usuario_Nombre",
+    "u"."Apellido" AS "Usuario_Apellido",
+    "u"."Fecha_Nacimiento",
+    "u"."Email" AS "Usuario_Email",
+    "u"."Fecha_Creacion" AS "Usuario_Fecha_Creacion",
+    
+    "c"."Telefono" AS "Contacto_Telefono",
+    "c"."Domicilio" AS "Contacto_Domicilio",
+    "c"."Ciudad" AS "Contacto_Ciudad",
+    "c"."Pais" AS "Contacto_Pais",
+
+    "f"."Nombre" AS "Formacion_Nombre",
+    "f"."Descripcion" AS "Formacion_Descripcion",
+    "f"."Nivel" AS "Formacion_Nivel",
+    "f"."Institucion" AS "Formacion_Institucion",
+    "f"."Duracion" AS "Formacion_Duracion",
+    "f"."Fecha_Titulo" AS "Formacion_Fecha_Titulo",
+    "f"."Activo" AS "Formacion_Activo",
+    "f"."Identificador_Archivo" AS "Formacion_UUID",
+
+    "e"."Nombre" AS "Empresa_Nombre",
+    "e"."Razon_Social" AS "Empresa_Razon_Social",
+    "e"."Direccion" AS "Empresa_Direccion",
+    "e"."Ciudad" AS "Empresa_Ciudad",
+    "e"."Pais" AS "Empresa_Pais",
+    "e"."Telefono" AS "Empresa_Telefono",
+    "e"."Email" AS "Empresa_Email",
+    "e"."Sitio_Web" AS "Empresa_Sitio_Web",
+    "e"."Industria" AS "Empresa_Industria",
+    "e"."Estado" AS "Empresa_Estado",
+
+    "em"."Fecha_Inicio" AS "Empleo_Fecha_Inicio",
+    "em"."Fecha_Fin" AS "Empleo_Fecha_Fin",
+    "em"."Posicion" AS "Empleo_Posicion",
+    "em"."Activo" AS "Empleo_Activo"
+FROM 
+    "Usuario" AS "u"
+LEFT JOIN 
+    "Contacto" AS "c" ON "u"."Id_Usuario" = "c"."Id_Usuario"
+LEFT JOIN 
+    "Empleo" AS "em" ON "u"."Id_Usuario" = "em"."Id_Usuario"
+LEFT JOIN 
+    "Formacion" AS "f" ON "em"."Id_Formacion" = "f"."Id_Formacion"
+LEFT JOIN 
+    "Empresa" AS "e" ON "em"."Id_Empresa" = "e"."Id_Empresa"
+WHERE 
+    "u"."Id_Usuario" = 208;
+
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método GET:
 -->Lectura de PDF: Para visualizar: Solicitud GET a http://localhost:3000/report/user/54/pdf?mode=view  (en header -> Content-Type application/pdf)
@@ -412,8 +463,8 @@ industria: Si no se desea especificar la industria de la empresa inicialmente.
 edificar una api diferente a la actual en la que se cree/guarde y recupere archivos. desde la actual hacer get y adquirir tal archivo 
 respuesta de api 2: devolver un uuid esto es lo q guarda en la bd y se emplea para luego tener acceso y ver el pdf consultando a la api2. El pdf se guarda en disco 
 
-arreglar las tablas de empresa y titulo. nombre de archivo = uuid (archivos por usuario) (mas de 1 archivo x usuario)(cada user una carpeta)
+nombre de archivo = uuid (archivos por usuario) (mas de 1 archivo x usuario)(cada user una carpeta)
+
+solucion: en api1 cuando el cliente manda el archivo a guardar, se genera el uuid que se guarda en la bd y manda el archivo a la api2 que se guarde en disco. 
 
 api de facturacion conectado con afip
-
-carpeta report, carpeta user

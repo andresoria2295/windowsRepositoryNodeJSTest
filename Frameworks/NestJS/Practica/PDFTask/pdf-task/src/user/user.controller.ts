@@ -10,19 +10,38 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('create-user')
-  @UseInterceptors(FileInterceptor('ocupacion[file]')) //Intercepción opcional para manejar el archivo
-  async createUser(@Body() newUserData: any, @UploadedFile() file: Express.Multer.File | undefined, @Res() res: Response) {
-    try {
-      //console.log('Archivo recibido:', file);
-      await this.userService.createUser(newUserData, file); //Se pasa el archivo al servicio
-      console.log(`Usuario creado exitosamente.`);
-      res.status(201).json({ message: 'Usuario creado exitosamente.' });
-    } catch (error) {
-      console.error('Error detallado:', error); 
-      res.status(500).json({ message: 'Error al crear el usuario.', error: error.message });
-    }
+  @UseInterceptors(FileInterceptor('file')) // Cambiar a 'file'
+  async createUser(
+    @Body() newUserData: any,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Res() res: Response,
+  ) {
+  //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
+  if (newUserData['contraseÃ±a']) {
+    newUserData['contraseña'] = newUserData['contraseÃ±a'];
+    delete newUserData['contraseÃ±a'];
   }
-
+  try {
+    //Verifica si el archivo es opcional o necesario según la lógica
+    if (file) {
+      //Envía el archivo a la API B y obtiene el UUID
+      const fileUUID = await this.userService.sendFile(file);
+      newUserData.formacion = {
+        ...(newUserData.formacion || {}),
+        identificador_archivo: fileUUID,
+      };
+    }
+    console.log('Datos enviados al servicio:', newUserData);
+    //Crea el usuario en la base de datos
+    await this.userService.createUser(newUserData, file);
+    console.log(`Usuario creado exitosamente.`);
+    res.status(201).json({ message: 'Usuario creado exitosamente.' });
+  } catch (error) {
+    console.error('Error detallado:', error);
+    res.status(500).json({ message: 'Error al crear el usuario.', error: error.message });
+  }
+}
+  
   @Get('get-user')
     async getAllUsers(@Res() res: Response) {
         try {

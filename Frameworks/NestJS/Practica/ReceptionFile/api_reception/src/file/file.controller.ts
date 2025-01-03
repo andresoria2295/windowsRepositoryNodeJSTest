@@ -24,27 +24,61 @@ export class FileController {
       fileFilter: (req, file, callback) => {
         //Permite solo archivos PDF
         if (file.mimetype !== 'application/pdf') {
-          return callback(new Error('El sitema solo admite archivos de extensión .pdf'), false);
+          return callback(new Error('El sistema solo admite archivos de extensión .pdf'), false);
         }
         callback(null, true);
       },
-    }),
+  }),
   )
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    //Guarda datos adicionales del archivo si es necesario
-    const savedFile = await this.fileService.saveFileData(file);
+    //console.log('Solicitud recibida:', file);
+    const uuid = this.generateUUID(); //Genera un UUID único
+
+    //Crea un nuevo objeto que incluye el uuid
+    const fileWithUuid = {
+      ...file,
+      uuid,
+    };
+
+    //Guarda los datos del archivo con el UUID
+    const savedFile = await this.fileService.saveFileData(fileWithUuid);
+
+    console.log('Solicitud recibida en API B:');
+    console.log('Archivo:', file);
+    console.log('UUID generado:', uuid);
+    console.log('Datos guardados:', savedFile);
+    
+    console.log('Respuesta generada para API A: ', {
+      message: 'Archivo cargado correctamente.',
+      uuid: uuid,
+      file: savedFile,
+    });
+    
     return {
       message: 'Archivo cargado correctamente.',
+      uuid: uuid, //Devuelve el UUID generado
       file: savedFile,
     };
   }
+
+private generateUUID(): string {
+  return require('crypto').randomUUID(); // Genera un UUID único
+}
+
 
   @Get(':filename')
   async getFile(@Param('filename') filename: string, @Res() res: Response) {
     try {
       //Adquiere la ruta completa del archivo
       const filePath = this.fileService.getFilePath(filename);
-      res.sendFile(filePath, { root: './' }); //Envía el archivo al cliente
+
+      //Configura el encabezado para forzar la descarga
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=${filename}`,
+      );
+
+      res.sendFile(filePath); //Envía el archivo al cliente
     } catch (error) {
       res.status(404).json({ message: 'Archivo no encontrado.' });
     }

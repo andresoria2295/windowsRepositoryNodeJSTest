@@ -2,6 +2,10 @@ import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as FormData from 'form-data';
+import { Readable } from 'node:stream';
+import axios from 'axios';
+
 
 @Injectable()
 export class UserService {
@@ -24,6 +28,51 @@ export class UserService {
     }, {} as any);
   }
 
+  //Lógica para envio de archivo a la API B y adquirir el UUID
+  async sendFile(file: Express.Multer.File): Promise<string> {
+    try {
+      const formData = new FormData();
+      const stream = Readable.from(file.buffer);
+  
+      //Adjunta el archivo al formulario
+      formData.append('file', stream, file.originalname);
+  
+      //Usa los encabezados dinámicos generados por FormData
+      const headers = formData.getHeaders();
+  
+      //Realiza la solicitud a la API B
+      const response = await axios.post('http://localhost:4000/file/upload', formData, {
+        headers,
+      });
+  
+      //Log para depuración detallada
+      console.log('Respuesta completa de la API B:', response.data); // Verifica todos los datos que recibimos
+  
+      //Valida si la respuesta tiene el UUID esperado
+      if (response.status === 200 || response.status === 201) {  // Aceptamos tanto 200 como 201
+        //Revisa el uuid directamente desde response.data.uuid
+        if (response.data.uuid) {
+          console.log('UUID encontrado directamente en response.data.uuid:', response.data.uuid);
+          return response.data.uuid; // Retorna el UUID recibido directamente desde la respuesta
+        } 
+        //Revisa el uuid dentro de response.data.file.uuid
+        else if (response.data.file && response.data.file.uuid) {
+          console.log('UUID encontrado dentro de response.data.file.uuid:', response.data.file.uuid);
+          return response.data.file.uuid; // Si el uuid está dentro del campo 'file'
+        } else {
+          console.error('No se pudo obtener el UUID del archivo desde la API B (sin UUID en la respuesta)');
+          throw new Error('No se pudo obtener el UUID del archivo desde la API B.');
+        }
+      } else {
+        console.error('Error en la respuesta de la API B, código:', response.status);
+        throw new Error('Error en la respuesta de la API B, código: ' + response.status);
+      }
+    } catch (error) {
+      console.error('Error al enviar el archivo a la API B:', error.message);
+      throw new Error('Error al enviar el archivo a la API B: ' + error.message);
+    }
+  }
+  
   //Método para creación de usuarios
   async createUser(newUserData: any, file?: Express.Multer.File): Promise<void> {
     const {
@@ -40,44 +89,46 @@ export class UserService {
       empresa,
       empleo,
     } = newUserData;
-
+  
+    console.log('Datos recibidos para crear usuario:', { nombre, apellido, fecha_nacimiento, email, contraseña });
     if (!nombre || !apellido || !fecha_nacimiento || !email || !contraseña) {
       throw new Error('Faltan datos obligatorios: nombre, apellido, fecha de nacimiento, email y/o contraseña.');
     }
-
+  
     const client = await this.pool.connect();
     try {
-      await client.query('BEGIN'); // Inicia la transacción
-
+      await client.query('BEGIN');
+  
       //Paso 1: Inserta el Usuario
       const userResult = await client.query(
         `INSERT INTO "Usuario" ("Nombre", "Apellido", "Fecha_Nacimiento", "Email", "Contraseña", "Fecha_Creacion") 
          VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING "Id_Usuario"`,
-        [nombre, apellido, fecha_nacimiento, email, contraseña]
+        [nombre, apellido, fecha_nacimiento, email, contraseña],
       );
       const usuarioId = userResult.rows[0].Id_Usuario;
-
-      //Paso 2: Inserta el Contacto (opcional)
+  
+      //Paso 2: Maneja el Contacto (opcional)
       if (telefono || domicilio || ciudad || pais) {
         await client.query(
           `INSERT INTO "Contacto" ("Id_Usuario", "Telefono", "Domicilio", "Ciudad", "Pais") 
            VALUES ($1, $2, $3, $4, $5)`,
-          [usuarioId, telefono || null, domicilio || null, ciudad || null, pais || null]
+          [usuarioId, telefono || null, domicilio || null, ciudad || null, pais || null],
         );
       }
-
-      //Paso 3: Inserta la Formacion (opcional)
+  
+      //Paso 3: Inserta la Formación (opcional)
       let formacionId = null;
       if (formacion) {
-        const { nombre, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo } = formacion;
+        const { nombre, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo } =
+          formacion;
         const formacionResult = await client.query(
           `INSERT INTO "Formacion" ("Nombre", "Descripcion", "Nivel", "Institucion", "Duracion", "Fecha_Titulo", "Activo", "Identificador_Archivo") 
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "Id_Formacion"`,
-          [nombre, descripcion || null, nivel || null, institucion || null, duracion || null, fecha_titulo || null, activo || true, identificador_archivo || null]
+          [nombre, descripcion || null, nivel || null, institucion || null, duracion || null, fecha_titulo || null, activo || true, identificador_archivo || null],
         );
         formacionId = formacionResult.rows[0].Id_Formacion;
       }
-
+  
       //Paso 4: Inserta la Empresa (opcional)
       let empresaId = null;
       if (empresa) {
@@ -85,31 +136,33 @@ export class UserService {
         const empresaResult = await client.query(
           `INSERT INTO "Empresa" ("Nombre", "Razon_Social", "Direccion", "Ciudad", "Pais", "Telefono", "Email", "Sitio_Web", "Industria", "Estado") 
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING "Id_Empresa"`,
-          [nombre, razon_social || null, direccion || null, ciudad || null, pais || null, telefono || null, email || null, sitio_web || null, industria || null, estado || true]
+          [nombre, razon_social || null, direccion || null, ciudad || null, pais || null, telefono || null, email || null, sitio_web || null, industria || null, estado || true],
         );
         empresaId = empresaResult.rows[0].Id_Empresa;
       }
-
-      //Paso 5: Inserta el Empleo (opcional, depende de usuario, empresa, y formacion)
+  
+      //Paso 5: Inserta el Empleo (opcional)
       if (empleo) {
-        const { fecha_inicio, fecha_fin, posicion, activo } = empleo;
-        await client.query(
-          `INSERT INTO "Empleo" ("Id_Usuario", "Id_Empresa", "Id_Formacion", "Fecha_Inicio", "Fecha_Fin", "Posicion", "Activo") 
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [usuarioId, empresaId || null, formacionId || null, fecha_inicio || null, fecha_fin || null, posicion || null, activo || true]
-        );
+        const { fecha_inicio, posicion, activo } = empleo;
+        if (empresaId) {
+          await client.query(
+            `INSERT INTO "Empleo" ("Id_Usuario", "Id_Formacion", "Id_Empresa", "Fecha_Inicio", "Posicion", "Activo") 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [usuarioId, formacionId, empresaId, fecha_inicio || null, posicion || null, activo || true],
+          );
+        }
       }
-
-      await client.query('COMMIT'); //Confirma la transacción
-
+  
+      await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK'); //Revierte si hay error
+      await client.query('ROLLBACK');
       console.error('Error al crear el usuario:', error);
       throw new Error('Error al crear el usuario: ' + error.message);
     } finally {
-      client.release(); //Libera conexión
+      client.release();
     }
-  }
+  }  
+  
 
 //Método para lectura de datos completos.
 async getAllUsers(): Promise<any[]> {
@@ -287,7 +340,7 @@ async getSpecificUser(userId: number): Promise<any> {
     }
 }
 
-// Método para actualizar los datos de un usuario
+//Método para actualizar los datos de un usuario
 async updateUserFields(userId: number, data: any): Promise<void> {
     const client = await this.pool.connect();
     try {
@@ -338,7 +391,7 @@ async updateUserFields(userId: number, data: any): Promise<void> {
             },
         };
 
-        // Actualiza tabla Usuario
+        //Actualiza tabla Usuario
         if (data.usuario) {
             const usuarioData = this.normalizeFields(fieldMappings.usuario, data.usuario);
             const updateUserQuery = `
@@ -350,7 +403,7 @@ async updateUserFields(userId: number, data: any): Promise<void> {
             await client.query(updateUserQuery, [...Object.values(usuarioData), userId]);
         }
 
-        // Actualiza tabla Contacto
+        //Actualiza tabla Contacto
         if (data.contacto) {
             const contactoData = this.normalizeFields(fieldMappings.contacto, data.contacto);
             const updateContactQuery = `
@@ -362,14 +415,14 @@ async updateUserFields(userId: number, data: any): Promise<void> {
             await client.query(updateContactQuery, [...Object.values(contactoData), userId]);
         }
 
-        // Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
+        //Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
         const empleoResult = await client.query(
             `SELECT "Id_Formacion", "Id_Empresa" FROM "Empleo" WHERE "Id_Usuario" = $1`,
             [userId]
         );
         const { Id_Formacion, Id_Empresa } = empleoResult.rows[0] || {};
 
-        // Actualiza tabla Empleo
+        //Actualiza tabla Empleo
         if (data.empleo) {
             const empleoData = this.normalizeFields(fieldMappings.empleo, data.empleo);
             const updateEmpleoQuery = `
@@ -381,7 +434,7 @@ async updateUserFields(userId: number, data: any): Promise<void> {
             await client.query(updateEmpleoQuery, [...Object.values(empleoData), userId]);
         }
 
-        // Actualiza tabla Formacion
+        //Actualiza tabla Formacion
         if (data.formacion && Id_Formacion) {
             const formacionData = this.normalizeFields(fieldMappings.formacion, data.formacion);
             const updateFormacionQuery = `
@@ -393,7 +446,7 @@ async updateUserFields(userId: number, data: any): Promise<void> {
             await client.query(updateFormacionQuery, [...Object.values(formacionData), Id_Formacion]);
         }
 
-        // Actualiza tabla Empresa
+        //Actualiza tabla Empresa
         if (data.empresa && Id_Empresa) {
             const empresaData = this.normalizeFields(fieldMappings.empresa, data.empresa);
             const updateEmpresaQuery = `
@@ -435,7 +488,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
       console.log('Actualizando usuario con ID:', userId);
       console.log('Datos a actualizar:', updatedData);
   
-      // 1. Actualizar la tabla Usuario
+      //1. Actualizar la tabla Usuario
       const userQuery = `
         UPDATE "Usuario"
         SET "Nombre" = $1, "Apellido" = $2, "Email" = $3, "Fecha_Nacimiento" = $4, "Contraseña" = $5
@@ -445,7 +498,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
       console.log('Ejecutando consulta para Usuario:', userQuery, userValues);
       await this.pool.query(userQuery, userValues);
   
-      // 2. Actualizar la tabla Contacto
+      //2. Actualizar la tabla Contacto
       if (telefono || domicilio || ciudad || pais) {
         const contactoQuery = `
           UPDATE "Contacto"
@@ -457,12 +510,12 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
         await this.pool.query(contactoQuery, contactoValues);
       }
   
-        // 3. Verificar si el usuario tiene un empleo y actualizar o insertar
+        //3. Verificar si el usuario tiene un empleo y actualizar o insertar
         let empleoId: number | null = null;
         if (empleo) {
         let { fecha_inicio, fecha_fin, posicion, activo } = empleo;
 
-        // Conversión de campos vacíos a NULL
+        //Conversión de campos vacíos a NULL
         if (fecha_fin === '') {
             console.log('Campo "fecha_fin" vacío, lo convirtiendo a NULL');
             fecha_fin = null;
@@ -479,7 +532,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
         );
 
         if (existingEmpleo.rows.length > 0) {
-            // Si existe un empleo, actualizarlo
+            //Si existe un empleo, actualizarlo
             console.log('Empleo existente encontrado, actualizando...');
             empleoId = existingEmpleo.rows[0]["Id_Empleo"]; // Accede al campo correctamente
         
@@ -505,18 +558,18 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
         }        
         }
 
-      // 4. Insertar o actualizar la tabla Formacion
+      //4. Inserta o actualiza la tabla Formacion
       if (formacion) {
         const { nombre: nombreFormacion, descripcion, nivel, institucion, duracion, fecha_titulo, activo, identificador_archivo } = formacion;
   
-        // Verificar si la formación ya está registrada
+        //Verifica si la formación ya está registrada
         const existingFormacion = await this.pool.query(
           `SELECT "Id_Formacion" FROM "Formacion" WHERE "Id_Formacion" = $1 LIMIT 1`,
           [empleoId]
         );
   
         if (existingFormacion.rows.length > 0) {
-          // Si la formación existe, actualizarla
+          //Si la formación existe, actualizarla
           const formacionQuery = `
             UPDATE "Formacion"
             SET "Nombre" = $1, "Descripcion" = $2, "Nivel" = $3, "Institucion" = $4, "Duracion" = $5, "Fecha_Titulo" = $6, "Activo" = $7, "Identificador_Archivo" = $8
@@ -529,7 +582,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
           console.log('Ejecutando consulta para Formacion (actualización):', formacionQuery, formacionValues);
           await this.pool.query(formacionQuery, formacionValues);
         } else {
-          // Si no existe la formación, insertarla
+          //Si no existe la formación, insertarla
           const formacionInsertQuery = `
             INSERT INTO "Formacion" ("Nombre", "Descripcion", "Nivel", "Institucion", "Duracion", "Fecha_Titulo", "Activo", "Identificador_Archivo")
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "Id_Formacion"
@@ -540,18 +593,18 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
         }
       }
   
-      // 5. Insertar o actualizar la tabla Empresa
+      //5. Insertar o actualizar la tabla Empresa
       if (empresa) {
         const { nombre: nombreEmpresa, razon_social, direccion, ciudad: ciudadEmpresa, pais: paisEmpresa, telefono: telefonoEmpresa, email: emailEmpresa, sitio_web, industria, estado } = empresa;
   
-        // Verificar si la empresa ya está registrada
+        //Verifica si la empresa ya está registrada
         const existingEmpresa = await this.pool.query(
           `SELECT "Id_Empresa" FROM "Empresa" WHERE "Id_Empresa" = $1 LIMIT 1`,
           [empleoId]
         );
   
         if (existingEmpresa.rows.length > 0) {
-          // Si la empresa existe, actualizarla
+          //Si la empresa existe, actualizarla
           const empresaQuery = `
             UPDATE "Empresa"
             SET "Nombre" = $1, "Razon_Social" = $2, "Direccion" = $3, "Ciudad" = $4, "Pais" = $5, "Telefono" = $6, "Email" = $7, "Sitio_Web" = $8, "Industria" = $9, "Estado" = $10
@@ -564,7 +617,7 @@ async updateUser(userId: number, updatedData: any): Promise<void> {
           console.log('Ejecutando consulta para Empresa (actualización):', empresaQuery, empresaValues);
           await this.pool.query(empresaQuery, empresaValues);
         } else {
-          // Si no existe la empresa, insertarla
+          //Si no existe la empresa, insertarla
           const empresaInsertQuery = `
             INSERT INTO "Empresa" ("Nombre", "Razon_Social", "Direccion", "Ciudad", "Pais", "Telefono", "Email", "Sitio_Web", "Industria", "Estado")
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING "Id_Empresa"

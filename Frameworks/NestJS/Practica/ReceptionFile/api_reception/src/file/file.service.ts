@@ -8,9 +8,9 @@ export class FileService {
   //Configuración de Multer para almacenamiento en disco
   public storageConfig() {
     return diskStorage({
-      destination: './uploads', //Carpeta donde se guardan los archivos
+      destination: './uploads', // Carpeta donde se guardan los archivos
       filename: (req, file, callback) => {
-        // Generación de un nombre único para cada archivo
+        //Generación de un nombre único para cada archivo
         const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
         const fileExt = extname(file.originalname); //Obtiene la extensión del archivo
         const newFilename = `file-${uniqueSuffix}${fileExt}`;
@@ -19,9 +19,10 @@ export class FileService {
     });
   }
 
-  //Método para guardar información adicional del archivo (si se requiere)
-  public saveFileData(file: Express.Multer.File): any {
+  //Método para guardar información adicional del archivo (incluyendo el UUID)
+  public saveFileData(file: Express.Multer.File & { uuid: string }): any {
     return {
+      uuid: file.uuid, //Agrega el UUID al objeto devuelto
       originalName: file.originalname,
       filename: file.filename,
       path: file.path,
@@ -41,4 +42,3 @@ export class FileService {
     return filePath;
   }
 }
-
