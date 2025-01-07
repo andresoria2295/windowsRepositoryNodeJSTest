@@ -76,18 +76,38 @@ export class UserController {
             throw new BadRequestException('Error al actualizar el usuario.');
         }
     }
-
+  
   @Put('update-user/:id')
-    async updateUser(@Param('id') userId: number, @Body() updatedData: any): Promise<any> {
-      try {
-        await this.userService.updateUser(userId, updatedData);
-        return { message: 'Usuario actualizado correctamente.' };
-      } catch (error) {
-        console.error('Error al actualizar el usuario:', error);
-        throw new BadRequestException('Error al actualizar el usuario.');
-      }
+  @UseInterceptors(FileInterceptor('file'))
+  async updateUser(
+    @Param('id') id: number,
+    @Body() updatedData: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<void> {
+    let identificador_archivo: string | null = null;
+    
+    //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
+    if (updatedData['contraseÃ±a']) {
+      updatedData['contraseña'] = updatedData['contraseÃ±a'];
+      delete updatedData['contraseÃ±a'];
     }
-
+    
+    if (file) {
+      //Envía el archivo a la API B y recibe el UUID
+      identificador_archivo = await this.userService.sendFile(file);
+    }
+    
+    //Agrega el UUID al cuerpo de datos actualizado, si se recibió
+    if (identificador_archivo) {
+      updatedData.formacion = {
+        ...updatedData.formacion,
+        identificador_archivo,
+      };
+    }
+    
+    await this.userService.updateUser(id, updatedData);
+  }
+    
   @Delete('/delete-user/:id')
   async deleteUser(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
     try {
