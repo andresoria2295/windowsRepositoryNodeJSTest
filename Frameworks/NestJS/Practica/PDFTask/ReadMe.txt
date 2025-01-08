@@ -56,13 +56,12 @@ WHERE
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método GET:
--->Lectura de PDF: Para visualizar: Solicitud GET a http://localhost:3000/report/user/54/pdf?mode=view  (en header -> Content-Type application/pdf)
+--> Lectura de PDF: Para visualizar: Solicitud GET a http://localhost:3000/report/user/54/pdf?mode=view  (en header -> Content-Type application/pdf)
 	                 Para descargar: Solicitud GET a http://localhost:3000/report/user/54/download-pdf?mode=download (sin header)
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método POST:
---> Inserción de datos con pdf file: http://localhost:3000/report/user/ (en body -> form-data) (en header -> Content-Type multipart/form-data)
--->NUEVA Inserción de datos: http://localhost:3000/user/create-user (en body -> form-data) (en header -> Content-Type application/json)
+--> Inserción de datos: http://localhost:3000/user/create-user (en body -> form-data) (en header -> Content-Type multipart/form-data)
 Postman: {
   "nombre": "Viviana",
   "apellido": "Arena",
@@ -80,8 +79,7 @@ Postman: {
     "institucion": "Instituto Balseiro",
     "duracion": "4 años",
     "fecha_titulo": "1988-05-30",
-    "activo": true,
-    "identificador_archivo": "identificador819"
+    "activo": true
   },
   "empresa": {
     "nombre": "FUESMEN",
@@ -105,7 +103,8 @@ Postman: {
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PUT:
---> Inserción de datos: http://localhost:3000/update-user/:id (en body -> raw) (en header -> Content-Type application/json)
+--> Inserción de datos:http://localhost:3000/user/update-user/:id (en body -> form-data) (en header -> Content-Type multipart/form-data)
+
 {
   "nombre": "Estela",
   "apellido": "Cardenas",
@@ -123,8 +122,7 @@ Método PUT:
     "institucion": "Instituto Valle de Uco",
     "duracion": "4 años",
     "fecha_titulo": "1993-07-27",
-    "activo": true,
-    "identificador_archivo": "identificador068"
+    "activo": true
   },
   "empresa": {
     "nombre": "Terrazas España",
@@ -148,7 +146,7 @@ Método PUT:
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PATCH:
--->Actualización de datos: localhost:3000/user/update-user/fields/:id (en body -> raw) (en header -> Content-Type application/json)
+-->Actualización de datos: localhost:3000/user/update-user/fields/:id (en body -> form-data) (en header -> Content-Type multipart/form-data)
 Postman: {
   "usuario":{
     "nombre": "Micaela",
@@ -170,8 +168,7 @@ Postman: {
     "institucion": "UNC",
     "duracion": "4 años",
     "fecha_titulo": "2018-08-30",
-    "activo": true,
-    "identificador_archivo": "identificador171"
+    "activo": true
   },
   "empresa": {
     "nombre": "Radiología Mendoza",

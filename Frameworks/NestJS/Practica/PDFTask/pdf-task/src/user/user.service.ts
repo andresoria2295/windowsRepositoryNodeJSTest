@@ -13,20 +13,38 @@ export class UserService {
 
   //Función para normalizar los nombres de los campos
   private normalizeFields(tableFields: Record<string, string>, inputData: any): any {
-    return Object.keys(inputData).reduce((acc, key) => {
-      //Normalización para manejar "contraseña" de manera especial
-      let normalizedKey = key.toLowerCase() === 'contraseña' ? 'Contraseña' : tableFields[key.toLowerCase()] || key;
-      
-      //Verificación para campos de tipo fecha (Date)
-      if (normalizedKey.toLowerCase().includes('fecha') && (inputData[key] === '' || inputData[key] === null)) {
-        acc[normalizedKey] = null; // Asignar NULL si el valor de fecha está vacío
-      } else {
-        acc[normalizedKey] = inputData[key];
-      }
+    console.log('Input data before normalize:', inputData);
+    const normalized = Object.keys(inputData).reduce((acc, key) => {
+        // Convertimos la key a minúsculas para la comparación
+        const lowerKey = key.toLowerCase();
+        
+        // Obtenemos el nombre del campo normalizado
+        let normalizedKey = lowerKey === 'contraseña' 
+            ? 'Contraseña' 
+            : tableFields[lowerKey];
 
-      return acc;
+        // Si no encontramos el campo en el mapeo, lo ignoramos
+        if (!normalizedKey) {
+            console.log(`Campo ignorado: ${key} - no encontrado en el mapeo`);
+            return acc;
+        }
+
+        // Procesamiento especial para fechas
+        if (normalizedKey.toLowerCase().includes('fecha')) {
+            acc[normalizedKey] = inputData[key] === '' || inputData[key] === null 
+                ? null 
+                : inputData[key];
+        } else {
+            acc[normalizedKey] = inputData[key];
+        }
+
+        console.log(`Campo normalizado: ${key} -> ${normalizedKey} = ${acc[normalizedKey]}`);
+        return acc;
     }, {} as any);
-  }
+
+    console.log('Normalized data:', normalized);
+    return normalized;
+}
 
   //Lógica para envio de archivo a la API B y adquirir el UUID
   async sendFile(file: Express.Multer.File): Promise<string> {
@@ -340,135 +358,223 @@ async getSpecificUser(userId: number): Promise<any> {
     }
 }
 
-//Método para actualizar campos puntuales de un usuario
 async updateUserFields(userId: number, data: any): Promise<void> {
     const client = await this.pool.connect();
     try {
         await client.query('BEGIN');
+        console.log('Datos recibidos:', data);
 
         //Mapeo de campos de la base de datos
         const fieldMappings = {
-            "usuario": {
-                "nombre": "Nombre",
-                "apellido": "Apellido",
-                "fecha_nacimiento": "Fecha_Nacimiento",
-                "email": "Email",
-                "contraseña": "Contraseña",
-            },
-            "contacto": {
-                "telefono": "Telefono",
-                "domicilio": "Domicilio",
-                "ciudad": "Ciudad",
-                "pais": "Pais",
-            },
-            "formacion": {
-                "nombre": "Nombre",
-                "descripcion": "Descripcion",
-                "nivel": "Nivel",
-                "institucion": "Institucion",
-                "duracion": "Duracion",
-                "fecha_titulo": "Fecha_Titulo",
-                "activo": "Activo",
-                "identificador_archivo": "Identificador_Archivo",
-            },
-            "empresa": {
-                "nombre": "Nombre",
-                "razon_social": "Razon_Social",
-                "direccion": "Direccion",
-                "ciudad": "Ciudad",
-                "pais": "Pais",
-                "telefono": "Telefono",
-                "email": "Email",
-                "sitio_web": "Sitio_Web",
-                "industria": "Industria",
-                "estado": "Estado",
-            },
-            "empleo": {
-                "fecha_inicio": "Fecha_Inicio",
-                "fecha_fin": "Fecha_Fin",
-                "posicion": "Posicion",
-                "activo": "Activo",
-            },
+          usuario: {
+              nombre: 'Nombre',
+              apellido: 'Apellido',
+              fecha_nacimiento: 'Fecha_Nacimiento',
+              email: 'Email',
+              contraseña: 'Contraseña',
+          },
+          contacto: {
+              telefono: 'Telefono',
+              domicilio: 'Domicilio',
+              ciudad: 'Ciudad',
+              pais: 'Pais',
+          },
+          formacion: {
+              nombre: 'Nombre',
+              descripcion: 'Descripcion',
+              nivel: 'Nivel',
+              institucion: 'Institucion',
+              duracion: 'Duracion',
+              fecha_titulo: 'Fecha_Titulo',
+              activo: 'Activo',
+              identificador_archivo: 'Identificador_Archivo',
+          },
+          empresa: {
+              nombre: 'Nombre',
+              razon_social: 'Razon_Social',
+              direccion: 'Direccion',
+              ciudad: 'Ciudad',
+              pais: 'Pais',
+              telefono: 'Telefono',
+              email: 'Email',
+              sitio_web: 'Sitio_Web',
+              industria: 'Industria',
+              estado: 'Estado',
+          },
+          empleo: {
+              fecha_inicio: 'Fecha_Inicio',
+              fecha_fin: 'Fecha_Fin',
+              posicion: 'Posicion',
+              activo: 'Activo',
+          },
+      };
+
+        //Separa los datos planos de usuario y contacto
+        const usuarioFields = ['nombre', 'apellido', 'email', 'fecha_nacimiento', 'contraseña'];
+        const contactoFields = ['telefono', 'domicilio', 'ciudad', 'pais'];
+        
+        //Crea objetos para usuario y contacto desde datos planos
+        const usuarioData = {};
+        const contactoData = {};
+        
+        //Procesa campos planos
+        Object.keys(data).forEach(key => {
+            const lowerKey = key.toLowerCase();
+            if (usuarioFields.includes(lowerKey)) {
+                usuarioData[lowerKey] = data[key];
+            } else if (contactoFields.includes(lowerKey)) {
+                contactoData[lowerKey] = data[key];
+            }
+        });
+
+        //Reconstruye el objeto data con la estructura correcta
+        const processedData = {
+            ...data,
+            usuario: Object.keys(usuarioData).length > 0 ? usuarioData : undefined,
+            contacto: Object.keys(contactoData).length > 0 ? contactoData : undefined
         };
 
+        console.log('Datos procesados:', processedData);
+
+        //Función auxiliar para generar consultas de actualización
+        const generateUpdateQuery = (tableName: string, data: any, whereColumn: string): {
+          query: string;
+          values: any[];
+      } => {
+          const setClause = Object.keys(data)
+              .map((key, index) => `"${key}" = $${index + 1}`)
+              .join(', ');
+          const values = [...Object.values(data), userId];
+          const query = `
+              UPDATE "${tableName}" 
+              SET ${setClause}
+              WHERE "${whereColumn}" = $${Object.keys(data).length + 1}
+              RETURNING *
+          `;
+          return { query, values };
+      };
+
         //Actualiza tabla Usuario
-        if (data.usuario) {
-            const usuarioData = this.normalizeFields(fieldMappings.usuario, data.usuario);
-            const updateUserQuery = `
-                UPDATE "Usuario" SET ${Object.keys(usuarioData)
+        if (Object.keys(usuarioData).length > 0) {
+            console.log('Actualizando usuario con datos:', usuarioData);
+            const usuarioNormalized = this.normalizeFields(fieldMappings.usuario, usuarioData);
+            
+            if (Object.keys(usuarioNormalized).length > 0) {
+                const setClause = Object.keys(usuarioNormalized)
                     .map((key, index) => `"${key}" = $${index + 1}`)
-                    .join(', ')}
-                WHERE "Id_Usuario" = $${Object.keys(usuarioData).length + 1}
-            `;
-            await client.query(updateUserQuery, [...Object.values(usuarioData), userId]);
+                    .join(', ');
+                
+                const updateUserQuery = `
+                    UPDATE "Usuario"
+                    SET ${setClause}
+                    WHERE "Id_Usuario" = $${Object.keys(usuarioNormalized).length + 1}
+                    RETURNING *
+                `;
+                
+                const values = [...Object.values(usuarioNormalized), userId];
+                console.log('Query Usuario:', updateUserQuery);
+                console.log('Valores Usuario:', values);
+                
+                const result = await client.query(updateUserQuery, values);
+                console.log('Resultado actualización usuario:', result.rows);
+            }
         }
 
         //Actualiza tabla Contacto
-        if (data.contacto) {
-            const contactoData = this.normalizeFields(fieldMappings.contacto, data.contacto);
-            const updateContactQuery = `
-                UPDATE "Contacto" SET ${Object.keys(contactoData)
+        if (Object.keys(contactoData).length > 0) {
+            console.log('Actualizando contacto con datos:', contactoData);
+            const contactoNormalized = this.normalizeFields(fieldMappings.contacto, contactoData);
+            
+            if (Object.keys(contactoNormalized).length > 0) {
+                const checkContact = await client.query(
+                    'SELECT * FROM "Contacto" WHERE "Id_Usuario" = $1',
+                    [userId]
+                );
+                
+                const setClause = Object.keys(contactoNormalized)
                     .map((key, index) => `"${key}" = $${index + 1}`)
-                    .join(', ')}
-                WHERE "Id_Usuario" = $${Object.keys(contactoData).length + 1}
-            `;
-            await client.query(updateContactQuery, [...Object.values(contactoData), userId]);
+                    .join(', ');
+                    
+                if (checkContact.rowCount === 0) {
+                    const insertQuery = `
+                        INSERT INTO "Contacto" ("Id_Usuario", ${Object.keys(contactoNormalized).map(k => `"${k}"`).join(', ')})
+                        VALUES ($1, ${Object.keys(contactoNormalized).map((_, i) => `$${i + 2}`).join(', ')})
+                        RETURNING *
+                    `;
+                    const values = [userId, ...Object.values(contactoNormalized)];
+                    console.log('Query Insert Contacto:', insertQuery);
+                    console.log('Valores Insert Contacto:', values);
+                    
+                    const result = await client.query(insertQuery, values);
+                    console.log('Resultado inserción contacto:', result.rows);
+                } else {
+                    const updateQuery = `
+                        UPDATE "Contacto"
+                        SET ${setClause}
+                        WHERE "Id_Usuario" = $${Object.keys(contactoNormalized).length + 1}
+                        RETURNING *
+                    `;
+                    const values = [...Object.values(contactoNormalized), userId];
+                    console.log('Query Update Contacto:', updateQuery);
+                    console.log('Valores Update Contacto:', values);
+                    
+                    const result = await client.query(updateQuery, values);
+                    console.log('Resultado actualización contacto:', result.rows);
+                }
+            }
         }
 
-        //Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
+         //Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
         const empleoResult = await client.query(
-            `SELECT "Id_Formacion", "Id_Empresa" FROM "Empleo" WHERE "Id_Usuario" = $1`,
-            [userId]
+          `SELECT "Id_Formacion", "Id_Empresa" FROM "Empleo" WHERE "Id_Usuario" = $1`,
+          [userId]
         );
         const { Id_Formacion, Id_Empresa } = empleoResult.rows[0] || {};
 
         //Actualiza tabla Empleo
-        if (data.empleo) {
+        if (data.empleo && Object.keys(data.empleo).length > 0) {
             const empleoData = this.normalizeFields(fieldMappings.empleo, data.empleo);
-            const updateEmpleoQuery = `
-                UPDATE "Empleo" SET ${Object.keys(empleoData)
-                    .map((key, index) => `"${key}" = $${index + 1}`)
-                    .join(', ')}
-                WHERE "Id_Usuario" = $${Object.keys(empleoData).length + 1}
-            `;
-            await client.query(updateEmpleoQuery, [...Object.values(empleoData), userId]);
+            if (Object.keys(empleoData).length > 0) {
+                const { query, values } = generateUpdateQuery('Empleo', empleoData, 'Id_Usuario');
+                await client.query(query, values);
+            }
         }
 
         //Actualiza tabla Formacion
-        if (data.formacion && Id_Formacion) {
+        if (data.formacion && Id_Formacion && Object.keys(data.formacion).length > 0) {
             const formacionData = this.normalizeFields(fieldMappings.formacion, data.formacion);
-            const updateFormacionQuery = `
-                UPDATE "Formacion" SET ${Object.keys(formacionData)
-                    .map((key, index) => `"${key}" = $${index + 1}`)
-                    .join(', ')}
-                WHERE "Id_Formacion" = $${Object.keys(formacionData).length + 1}
-            `;
-            await client.query(updateFormacionQuery, [...Object.values(formacionData), Id_Formacion]);
+            if (Object.keys(formacionData).length > 0) {
+                const { query, values } = generateUpdateQuery('Formacion', formacionData, 'Id_Formacion');
+                await client.query(query, [...values.slice(0, -1), Id_Formacion]);
+            }
         }
 
         //Actualiza tabla Empresa
-        if (data.empresa && Id_Empresa) {
+        if (data.empresa && Id_Empresa && Object.keys(data.empresa).length > 0) {
             const empresaData = this.normalizeFields(fieldMappings.empresa, data.empresa);
-            const updateEmpresaQuery = `
-                UPDATE "Empresa" SET ${Object.keys(empresaData)
-                    .map((key, index) => `"${key}" = $${index + 1}`)
-                    .join(', ')}
-                WHERE "Id_Empresa" = $${Object.keys(empresaData).length + 1}
-            `;
-            await client.query(updateEmpresaQuery, [...Object.values(empresaData), Id_Empresa]);
+            if (Object.keys(empresaData).length > 0) {
+                const { query, values } = generateUpdateQuery('Empresa', empresaData, 'Id_Empresa');
+                await client.query(query, [...values.slice(0, -1), Id_Empresa]);
+            }
         }
 
         await client.query('COMMIT');
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Error al actualizar los datos del usuario:', error);
+        console.error('Error detallado:', {
+          message: error.message,
+          stack: error.stack,
+          detail: error.detail,
+          where: error.where,
+          code: error.code
+      });
         throw new Error('Error al actualizar los datos del usuario: ' + error.message);
     } finally {
         client.release();
     }
 }
-
-////Método para actualizar usuario y sus datos relacionados.
+//Método para actualizar usuario y sus datos relacionados.
 async updateUser(userId: number, updatedData: any, pdfFile?: Express.Multer.File): Promise<void> {
   const {
     nombre,
@@ -666,7 +772,5 @@ async deleteUser(userId: number): Promise<void> {
     } finally {
       client.release();
     }
-}  
-
-
+  }  
 }

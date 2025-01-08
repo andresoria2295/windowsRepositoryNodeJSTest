@@ -67,15 +67,37 @@ export class UserController {
   }
 
   @Patch('update-user/fields/:id')
-    async updateUserFields(@Param('id') userId: number, @Body() data: any): Promise<any> {
-        try {
-            await this.userService.updateUserFields(userId, data);
-            return { message: 'Campos actualizados correctamente.' };
-        } catch (error) {
-            console.error('Error en updateUser:', error);
-            throw new BadRequestException('Error al actualizar el usuario.');
-        }
-    }
+  @UseInterceptors(FileInterceptor('file'))
+  async updateUserFields(
+    @Param('id') id: number,
+    @Body() updatedData: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<void> {
+  
+    let identificador_archivo: string | null = null;
+
+  //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
+  if (updatedData['contraseÃ±a']) {
+    updatedData['contraseña'] = updatedData['contraseÃ±a'];
+    delete updatedData['contraseÃ±a'];
+  }
+
+  //Si se proporciona un archivo, se envía a la API B para obtener el UUID
+  if (file) {
+    identificador_archivo = await this.userService.sendFile(file);
+  }
+
+  //Agrega el UUID al campo formacion si se recibió
+  if (identificador_archivo) {
+    updatedData.formacion = {
+      ...updatedData.formacion,
+      identificador_archivo,
+    };
+  }
+
+  //Llama al método de servicio para manejar la actualización parcial
+  await this.userService.updateUserFields(id, updatedData);
+  }
   
   @Put('update-user/:id')
   @UseInterceptors(FileInterceptor('file'))
