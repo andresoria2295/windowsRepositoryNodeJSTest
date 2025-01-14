@@ -1,6 +1,6 @@
 import { Controller, Get, Res, Body, Post, Put, Patch, Param, 
     BadRequestException, Delete, ParseIntPipe, UseInterceptors, 
-    UploadedFile, InternalServerErrorException , NotFoundException, Query, HttpStatus } from '@nestjs/common';
+    UploadedFile, InternalServerErrorException, Query, HttpStatus } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -31,6 +31,7 @@ export class UserController {
         identificador_archivo: fileUUID,
       };
     }
+
     console.log('Datos enviados al servicio:', newUserData);
     //Crea el usuario en la base de datos
     await this.userService.createUser(newUserData, file);
@@ -64,6 +65,11 @@ export class UserController {
       console.error('Error al obtener los datos del usuario:', error);
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error al obtener los datos del usuario.' });
     }
+  }
+
+  @Get(':filename')
+  async getFile(@Param('filename') filename: string, @Res() res: Response) {
+    return this.userService.getFile(filename, res);
   }
 
   @Patch('update-user/fields/:id')

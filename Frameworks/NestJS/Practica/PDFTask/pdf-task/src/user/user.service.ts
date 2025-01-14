@@ -1,15 +1,17 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as FormData from 'form-data';
 import { Readable } from 'node:stream';
 import axios from 'axios';
+import { Response } from 'express';
 
 
 @Injectable()
 export class UserService {
   constructor(@Inject('DATABASE_CONNECTION') private readonly pool: Pool) {}
+  private readonly APIB = 'http://localhost:4000/file';
 
   //Función para normalizar los nombres de los campos
   private normalizeFields(tableFields: Record<string, string>, inputData: any): any {
@@ -91,6 +93,29 @@ export class UserService {
     }
   }
   
+  async getFile(filename: string, res: Response) {
+    try {
+      const fileUrl = `${this.APIB}/${filename}`;
+
+      //Realiza la solicitud GET a la API B
+      const response = await axios({
+        url: fileUrl,
+        method: 'GET',
+        responseType: 'stream', //Para manejar el archivo como flujo
+      });
+
+      //Configura encabezados en la respuesta
+      res.setHeader('Content-Type', response.headers['content-type']);
+      res.setHeader('Content-Disposition', response.headers['content-disposition']);
+
+      //Pasa el flujo del archivo al cliente
+      response.data.pipe(res);
+    } catch (error) {
+      console.error('Error al obtener el archivo de la API B:', error.message);
+      throw new HttpException('No se pudo obtener el archivo.', HttpStatus.BAD_REQUEST);
+    }
+  }
+
   //Método para creación de usuarios
   async createUser(newUserData: any, file?: Express.Multer.File): Promise<void> {
     const {
@@ -109,6 +134,7 @@ export class UserService {
     } = newUserData;
   
     console.log('Datos recibidos para crear usuario:', { nombre, apellido, fecha_nacimiento, email, contraseña });
+
     if (!nombre || !apellido || !fecha_nacimiento || !email || !contraseña) {
       throw new Error('Faltan datos obligatorios: nombre, apellido, fecha de nacimiento, email y/o contraseña.');
     }
@@ -116,7 +142,7 @@ export class UserService {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-  
+
       //Paso 1: Inserta el Usuario
       const userResult = await client.query(
         `INSERT INTO "Usuario" ("Nombre", "Apellido", "Fecha_Nacimiento", "Email", "Contraseña", "Fecha_Creacion") 
