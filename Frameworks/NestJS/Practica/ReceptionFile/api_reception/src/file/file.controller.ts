@@ -4,6 +4,8 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { FileService } from './file.service';
 import { Response } from 'express';
+import { join } from 'path';
+import * as fs from 'fs';
 
 @Controller('file')
 export class FileController {
@@ -46,21 +48,32 @@ export class FileController {
         file: savedFile,
       };
     }
-  
+
     @Get(':filename')
-    async getFile(@Param('filename') filename: string, @Res() res: Response) {
-      try {
-        const filePath = this.fileService.getFilePath(filename);
-  
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename=${filename}`,
-        );
-  
-        res.sendFile(filePath); //Envía el archivo al cliente
-      } catch (error) {
-        console.error(`Error al intentar acceder al archivo ${filename}:`, error.message);
-        res.status(404).json({ message: 'Archivo no encontrado.' });
+      async getFile(@Param('filename') filename: string, @Res() res: Response) {
+        try {
+          const filePath = this.fileService.getFilePath(filename);
+          console.log('Archivo solicitado en API B:', filePath);
+
+          res.sendFile(filePath, (err) => {
+            if (err) {
+              console.error('Error al enviar el archivo:', err.message);
+              throw new HttpException(
+                'Error al enviar el archivo.',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+              );
+            } else {
+              console.log('Archivo enviado correctamente:', filePath);
+            }
+          });
+        } catch (error) {
+          console.error('Error en API B al obtener el archivo:', error.message);
+          throw new HttpException(
+            `Archivo ${filename} no existente.`,
+            HttpStatus.NOT_FOUND,
+          );
+        }
       }
-    }
+
+
   }

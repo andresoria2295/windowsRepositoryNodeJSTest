@@ -10,7 +10,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('create-user')
-  @UseInterceptors(FileInterceptor('file')) // Cambiar a 'file'
+  @UseInterceptors(FileInterceptor('file')) 
   async createUser(
     @Body() newUserData: any,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -67,9 +67,10 @@ export class UserController {
     }
   }
 
-  @Get(':filename')
-  async getFile(@Param('filename') filename: string, @Res() res: Response) {
-    return this.userService.getFile(filename, res);
+  @Get('file/:userId')
+  async getFileByUser(@Param('userId') userId: number, @Res() res: Response) {
+    console.log('ID de usuario recibido:', userId);
+    return this.userService.getFileByUser(userId, res);
   }
 
   @Patch('update-user/fields/:id')

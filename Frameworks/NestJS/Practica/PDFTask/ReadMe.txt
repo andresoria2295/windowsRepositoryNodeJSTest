@@ -59,7 +59,7 @@ Método GET:
 --> Lectura de PDF: Para visualizar: Solicitud GET a http://localhost:3000/report/user/54/pdf?mode=view  (en header -> Content-Type application/pdf)
   	                  Para descargar: Solicitud GET a http://localhost:3000/report/user/54/download-pdf?mode=download (sin header)
 
-	                  Para visualizar/descargar: Solicitud GET a http://localhost:3000/user/:filename
+	                  Para visualizar/descargar: Solicitud GET a http://localhost:3000/user/file/:Id_Usuario
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método POST:

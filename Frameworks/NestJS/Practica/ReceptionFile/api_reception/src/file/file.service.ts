@@ -22,13 +22,13 @@ export class FileService {
 
   //Método para obtener la ruta completa de un archivo
   public getFilePath(filename: string): string {
-    const filePathWithoutExt = join(process.cwd(), 'uploads', filename); // Sin extensión
-    const filePathWithExt = `${filePathWithoutExt}.pdf`; // Con extensión
+    const filePathWithoutExt = join(process.cwd(), 'uploads', filename); //Sin extensión
+    const filePathWithExt = `${filePathWithoutExt}.pdf`; //Con extensión
   
     if (fs.existsSync(filePathWithoutExt)) {
-      return filePathWithoutExt; // Devuelve la ruta sin extensión si existe
+      return filePathWithoutExt; //Devuelve la ruta sin extensión si existe
     } else if (fs.existsSync(filePathWithExt)) {
-      return filePathWithExt; // Devuelve la ruta con extensión si existe
+      return filePathWithExt; //Devuelve la ruta con extensión si existe
     }
   
     console.error(`Archivo no encontrado. Rutas buscadas: 

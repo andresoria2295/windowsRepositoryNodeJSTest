@@ -11,7 +11,7 @@ import { Response } from 'express';
 @Injectable()
 export class UserService {
   constructor(@Inject('DATABASE_CONNECTION') private readonly pool: Pool) {}
-  private readonly APIB = 'http://localhost:4000/file';
+  //private readonly APIB = 'http://localhost:4000/file';
 
   //Función para normalizar los nombres de los campos
   private normalizeFields(tableFields: Record<string, string>, inputData: any): any {
@@ -95,7 +95,8 @@ export class UserService {
   
   async getFile(filename: string, res: Response) {
     try {
-      const fileUrl = `${this.APIB}/${filename}`;
+      //const fileUrl = `${this.APIB}/${filename}`;
+      const fileUrl = `http://localhost:4000/file/${filename}`;
 
       //Realiza la solicitud GET a la API B
       const response = await axios({
@@ -115,6 +116,44 @@ export class UserService {
       throw new HttpException('No se pudo obtener el archivo.', HttpStatus.BAD_REQUEST);
     }
   }
+
+  async getFileByUser(userId: number, res: Response) {
+    try {
+      console.log('ID de usuario recibido en API A:', userId);
+  
+      const query = `
+        SELECT f."Identificador_Archivo" 
+        FROM "Formacion" f 
+        INNER JOIN "Empleo" e ON f."Id_Formacion" = e."Id_Formacion" 
+        WHERE e."Id_Usuario" = $1
+      `;
+      const result = await this.pool.query(query, [userId]);
+      console.log('Resultado de la consulta en API A:', result.rows);
+  
+      if (result.rows.length === 0) {
+        throw new BadRequestException('No se encontró un archivo asociado a este usuario.');
+      }
+  
+      const { Identificador_Archivo } = result.rows[0];
+  
+      //URL de la API B
+      const fileUrl = `http://localhost:4000/file/${Identificador_Archivo}`;
+      console.log('URL generada para API B:', fileUrl);
+  
+      //Solicitud a la API B
+      const response = await axios.get(fileUrl, { responseType: 'stream' });
+      console.log('Respuesta recibida de API B:', response.status);
+  
+      //Envia el archivo al cliente desde API A
+      response.data.pipe(res);
+    } catch (error) {
+      console.error('Error en API A al obtener el archivo:', error.message);
+      throw new HttpException(
+        error.response?.data || 'Error al procesar la solicitud.',
+        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }  
 
   //Método para creación de usuarios
   async createUser(newUserData: any, file?: Express.Multer.File): Promise<void> {
