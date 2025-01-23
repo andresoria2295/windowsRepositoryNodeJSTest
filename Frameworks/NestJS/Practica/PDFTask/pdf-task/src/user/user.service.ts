@@ -6,6 +6,8 @@ import * as FormData from 'form-data';
 import { Readable } from 'node:stream';
 import axios from 'axios';
 import { Response } from 'express';
+import { CreateUserDto } from './dto/create-user.dto';
+import { DeleteUserDto } from './dto/delete-user.dto';
 
 
 @Injectable()
@@ -156,7 +158,7 @@ export class UserService {
   }  
 
   //Método para creación de usuarios
-  async createUser(newUserData: any, file?: Express.Multer.File): Promise<void> {
+  async createUser(newUserData: CreateUserDto, file?: Express.Multer.File): Promise<void> {
     const {
       nombre,
       apellido,

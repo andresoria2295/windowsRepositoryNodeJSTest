@@ -4,44 +4,55 @@ import { Controller, Get, Res, Body, Post, Put, Patch, Param,
 import { UserService } from './user.service';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CreateUserDto } from './dto/create-user.dto';
+import { DeleteUserDto } from './dto/delete-user.dto';
+import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('user')
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('create-user')
-  @UseInterceptors(FileInterceptor('file')) 
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Crea un nuevo usuario con datos opcionales como empresa, empleo y formación.',
+    type: CreateUserDto,
+  })
   async createUser(
-    @Body() newUserData: any,
+    @Body() newUserData: CreateUserDto,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Res() res: Response,
   ) {
-  //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
-  if (newUserData['contraseÃ±a']) {
-    newUserData['contraseña'] = newUserData['contraseÃ±a'];
-    delete newUserData['contraseÃ±a'];
-  }
-  try {
-    //Verifica si el archivo es opcional o necesario según la lógica
-    if (file) {
-      //Envía el archivo a la API B y obtiene el UUID
-      const fileUUID = await this.userService.sendFile(file);
-      newUserData.formacion = {
-        ...(newUserData.formacion || {}),
-        identificador_archivo: fileUUID,
-      };
-    }
+    try {
+      // Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña' si es necesario
+      if (newUserData['contraseÃ±a']) {
+        newUserData['contraseña'] = newUserData['contraseÃ±a'];
+        delete newUserData['contraseÃ±a'];
+      }
 
-    console.log('Datos enviados al servicio:', newUserData);
-    //Crea el usuario en la base de datos
-    await this.userService.createUser(newUserData, file);
-    console.log(`Usuario creado exitosamente.`);
-    res.status(201).json({ message: 'Usuario creado exitosamente.' });
-  } catch (error) {
-    console.error('Error detallado:', error);
-    res.status(500).json({ message: 'Error al crear el usuario.', error: error.message });
+      // Procesa el archivo si se proporciona
+      if (file) {
+        const fileUUID = await this.userService.sendFile(file);
+        // Agrega el UUID del archivo a la formación del usuario
+        newUserData.formacion = {
+          ...(newUserData.formacion || {}),
+          identificador_archivo: fileUUID,
+        };
+      }
+
+      // Envía los datos al servicio para crear el usuario
+      console.log('Datos enviados al servicio:', newUserData);
+      await this.userService.createUser(newUserData);
+
+      // Responde con éxito
+      res.status(201).json({ message: 'Usuario creado exitosamente.' });
+    } catch (error) {
+      console.error('Error al crear usuario:', error.message);
+      res.status(500).json({ message: 'Error al crear el usuario.', error: error.message });
+    }
   }
-}
   
   @Get('get-user')
     async getAllUsers(@Res() res: Response) {
@@ -138,11 +149,13 @@ export class UserController {
   }
     
   @Delete('/delete-user/:id')
-  async deleteUser(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
+  async deleteUser(@Body() deleteUserDto: DeleteUserDto, @Res() res: Response): Promise<void> {
+    console.log('deleteUserDto:', deleteUserDto); // Agregar depuración
+    const { userId } = deleteUserDto;
     try {
-      await this.userService.deleteUser(id);
-      console.log(`Usuario con ID ${id} eliminado exitosamente.`);
-      res.status(200).json({ message: `Usuario con ID ${id} eliminado exitosamente.` });
+      await this.userService.deleteUser(userId);
+      console.log(`Usuario con ID ${userId} eliminado exitosamente.`);
+      res.status(200).json({ message: `Usuario con ID ${userId} eliminado exitosamente.` });
     } catch (error) {
       console.error('Error al eliminar el usuario:', error);
       throw new InternalServerErrorException('Error al eliminar el usuario.');
