@@ -5,6 +5,8 @@ import { UserService } from './user.service';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { PatchUserDto } from './dto/patch-user.dto';
 import { DeleteUserDto } from './dto/delete-user.dto';
 import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 
@@ -87,8 +89,8 @@ export class UserController {
   @Patch('update-user/fields/:id')
   @UseInterceptors(FileInterceptor('file'))
   async updateUserFields(
-    @Param('id') id: number,
-    @Body() updatedData: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updatedData: PatchUserDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<void> {
   
@@ -118,40 +120,43 @@ export class UserController {
   }
   
   @Put('update-user/:id')
-  @UseInterceptors(FileInterceptor('file'))
-  async updateUser(
-    @Param('id') id: number,
-    @Body() updatedData: any,
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<void> {
-    let identificador_archivo: string | null = null;
-    
-    //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
-    if (updatedData['contraseÃ±a']) {
-      updatedData['contraseña'] = updatedData['contraseÃ±a'];
-      delete updatedData['contraseÃ±a'];
+    @UseInterceptors(FileInterceptor('file'))
+    async updateUser(
+      @Param('id', ParseIntPipe) id: number,
+      @Body() updateUserDto: UpdateUserDto,
+      @UploadedFile() file: Express.Multer.File,
+    ): Promise<{ message: string }> {
+      let identificador_archivo: string | null = null;
+
+      //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
+      if (updateUserDto['contraseÃ±a']) {
+        updateUserDto['contraseña'] = updateUserDto['contraseÃ±a'];
+        delete updateUserDto['contraseÃ±a'];
+      }
+
+      // Verifica si se recibió un archivo
+      if (file) {
+        // Envía el archivo a la API B y obtiene el UUID
+        identificador_archivo = await this.userService.sendFile(file);
+      }
+
+      // Agrega el UUID al campo correspondiente en `formacion` si hay archivo
+      if (identificador_archivo) {
+        updateUserDto.formacion = {
+          ...updateUserDto.formacion,
+          identificador_archivo,
+        };
+      }
+
+      // Llama al servicio para actualizar el usuario con el DTO actualizado
+      await this.userService.updateUser(id, updateUserDto);
+
+      return { message: `Usuario con ID ${id} actualizado exitosamente.` };
     }
     
-    if (file) {
-      //Envía el archivo a la API B y recibe el UUID
-      identificador_archivo = await this.userService.sendFile(file);
-    }
-    
-    //Agrega el UUID al cuerpo de datos actualizado, si se recibió
-    if (identificador_archivo) {
-      updatedData.formacion = {
-        ...updatedData.formacion,
-        identificador_archivo,
-      };
-    }
-    
-    await this.userService.updateUser(id, updatedData);
-  }
-    
-  @Delete('/delete-user/:id')
-  async deleteUser(@Body() deleteUserDto: DeleteUserDto, @Res() res: Response): Promise<void> {
-    console.log('deleteUserDto:', deleteUserDto); // Agregar depuración
-    const { userId } = deleteUserDto;
+  @Delete('/delete-user/:userId')
+  async deleteUser(@Param() params: DeleteUserDto,  @Res() res: Response): Promise<void> {
+    const { userId } = params;
     try {
       await this.userService.deleteUser(userId);
       console.log(`Usuario con ID ${userId} eliminado exitosamente.`);

@@ -1,43 +1,156 @@
-// src/user/dto/update-user.dto.ts
+import { IsOptional, IsString, IsEmail, IsDateString, IsNumber, IsBoolean, ValidateNested, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class UpdateFormacionDto {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  descripcion?: string;
+
+  @IsOptional()
+  @IsString()
+  nivel?: string;
+
+  @IsOptional()
+  @IsString()
+  institucion?: string;
+
+  @IsOptional()
+  @IsString()
+  duracion?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_titulo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+
+  @IsOptional()
+  @IsString()
+  identificador_archivo?: string;
+}
+
+class UpdateEmpresaDto {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  razon_social?: string;
+
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+
+  @IsOptional()
+  @IsString()
+  ciudad?: string;
+
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  sitio_web?: string;
+
+  @IsOptional()
+  @IsString()
+  industria?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  estado?: boolean;
+}
+
+class UpdateEmpleoDto {
+  @IsOptional()
+  @IsNumber()
+  id_empleo?: number;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_inicio?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_fin?: string | null;
+
+  @IsOptional()
+  @IsString()
+  posicion?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
 
 export class UpdateUserDto {
-    nombre: string;
-    apellido: string;
-    fecha_nacimiento: string; // O Date dependiendo de cómo gestionas las fechas
-    email: string;
-    contraseña: string;
-    telefono: string;
-    domicilio: string;
-    ciudad: string;
-    pais: string;
-    formacion: {
-      nombre: string;
-      descripcion: string;
-      nivel: string;
-      institucion: string;
-      duracion: string;
-      fecha_titulo: string;
-      activo: boolean;
-      identificador_archivo: string;
-    };
-    empresa: {
-      nombre: string;
-      razon_social: string;
-      direccion: string;
-      ciudad: string;
-      pais: string;
-      telefono: string;
-      email: string;
-      sitio_web: string;
-      industria: string;
-      estado: boolean;
-    };
-    empleo: {
-      id_empleo: number;
-      fecha_inicio: string;
-      fecha_fin: string | null;
-      posicion: string;
-      activo: boolean;
-    };
-  }
-  
+  @IsNumber()
+  userId: number;
+
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  apellido?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_nacimiento?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  contraseña?: string;
+
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+
+  @IsOptional()
+  @IsString()
+  domicilio?: string;
+
+  @IsOptional()
+  @IsString()
+  ciudad?: string;
+
+  @IsOptional()
+  @IsString()
+  pais?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateFormacionDto)
+  formacion?: UpdateFormacionDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateEmpresaDto)
+  empresa?: UpdateEmpresaDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateEmpleoDto)
+  empleo?: UpdateEmpleoDto;
+}

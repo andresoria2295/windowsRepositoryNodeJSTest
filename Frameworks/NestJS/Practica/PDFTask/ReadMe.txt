@@ -105,7 +105,7 @@ Postman: {
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método PUT:
---> Inserción de datos:http://localhost:3000/user/update-user/:id (en body -> form-data) (en header -> Content-Type multipart/form-data)
+--> Inserción de datos:http://localhost:3000/user/update-user/:id (en body -> form-data) (en header -> application/JSON)
 
 {
   "nombre": "Estela",
@@ -207,7 +207,8 @@ Postman:
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Método DELETE file:
--->Eliminación de registro: http://localhost:3000/user/delete-user/126 (none)
+-->Eliminación de registro: http://localhost:3000/user/delete-user/126 (none) 
+--> http://localhost:3000/user/delete-user (en header -> Content-Type application/json)
 
 -----------------------------------------------------------------------------------
 Reportes de ocupaciones agrupadas por puestos (GET -> http://localhost:3000/report/occupations/grouped)(en header -> Content-Type application/json)
