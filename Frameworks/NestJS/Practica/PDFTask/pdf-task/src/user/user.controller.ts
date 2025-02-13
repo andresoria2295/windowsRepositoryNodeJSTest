@@ -22,6 +22,7 @@ export class UserController {
     description: 'Crea un nuevo usuario con datos opcionales como empresa, empleo y formación.',
     type: CreateUserDto,
   })
+
   async createUser(
     @Body() newUserData: CreateUserDto,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -36,7 +37,7 @@ export class UserController {
 
       // Procesa el archivo si se proporciona
       if (file) {
-        const fileUUID = await this.userService.sendFile(file);
+        const fileUUID = await this.userService.sendFile(file, newUserData.nombre, newUserData.apellido);
         // Agrega el UUID del archivo a la formación del usuario
         newUserData.formacion = {
           ...(newUserData.formacion || {}),
@@ -104,7 +105,7 @@ export class UserController {
 
   //Si se proporciona un archivo, se envía a la API B para obtener el UUID
   if (file) {
-    identificador_archivo = await this.userService.sendFile(file);
+    identificador_archivo = await this.userService.sendFile(file, updatedData.nombre, updatedData.apellido);
   }
 
   //Agrega el UUID al campo formacion si se recibió
@@ -137,7 +138,7 @@ export class UserController {
       // Verifica si se recibió un archivo
       if (file) {
         // Envía el archivo a la API B y obtiene el UUID
-        identificador_archivo = await this.userService.sendFile(file);
+        identificador_archivo = await this.userService.sendFile(file, updateUserDto.nombre, updateUserDto.apellido);
       }
 
       // Agrega el UUID al campo correspondiente en `formacion` si hay archivo

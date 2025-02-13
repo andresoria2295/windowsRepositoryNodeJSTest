@@ -28,48 +28,61 @@ export class UserService {
     return normalized;
 }
 
-  //Lógica para envio de archivo a la API B y adquirir el UUID
-  async sendFile(file: Express.Multer.File): Promise<string> {
+async sendFile(
+    file: Express.Multer.File, //Archivo subido (proporcionado por Multer)
+    nombreUsuario: string, 
+    apellidoUsuario: string, 
+  ): Promise<string> { //Retorna una promesa con el UUID del archivo
     try {
-      const formData = new FormData();
-      const stream = Readable.from(file.buffer);
-  
-      //Adjunta el archivo al formulario
-      formData.append('file', stream, file.originalname);
-  
-      //Usa los encabezados dinámicos generados por FormData
-      const headers = formData.getHeaders();
-  
+      const formData = new FormData(); //Crea una instancia de FormData para enviar archivos
+
+      //Agrega los datos del usuario al FormData
+      formData.append('nombre_usuario', nombreUsuario); 
+      formData.append('apellido_usuario', apellidoUsuario); 
+
+      //Agrega el archivo como Buffer al FormData
+      formData.append('file', file.buffer, { //Usa el buffer del archivo
+        filename: file.originalname, //Nombre original del archivo
+        contentType: file.mimetype, //Tipo MIME del archivo (ej. application/pdf)
+      });
+
+      console.log('Datos a enviar:', { 
+        nombreUsuario,
+        apellidoUsuario,
+        fileName: file.originalname,
+      });
+
       //Realiza la solicitud a la API B
       const response = await axios.post('http://localhost:4000/file/upload', formData, {
-        headers,
+        headers: {
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity, //Permite archivos de gran tamaño
+        maxBodyLength: Infinity, //Permite cuerpos de solicitud grandes
       });
-  
-      //Log para depuración detallada
-      console.log('Respuesta completa de la API B:', response.data); // Verifica todos los datos que recibimos
-  
-      //Valida si la respuesta tiene el UUID esperado
-      if (response.status === 200 || response.status === 201) {  // Aceptamos tanto 200 como 201
-        //Revisa el uuid directamente desde response.data.uuid
-        if (response.data.uuid) {
+
+      console.log('Respuesta completa de la API B:', response.data); 
+
+      //Valida y retorna el UUID
+      if (response.status === 200 || response.status === 201) { 
+        if (response.data.uuid) { //Si el UUID está en response.data.uuid
           console.log('UUID encontrado directamente en response.data.uuid:', response.data.uuid);
-          return response.data.uuid; // Retorna el UUID recibido directamente desde la respuesta
-        } 
-        //Revisa el uuid dentro de response.data.file.uuid
-        else if (response.data.file && response.data.file.uuid) {
+          return response.data.uuid; //Retorna el UUID
+        } else if (response.data.file?.uuid) { //Si el UUID está en response.data.file.uuid
           console.log('UUID encontrado dentro de response.data.file.uuid:', response.data.file.uuid);
-          return response.data.file.uuid; // Si el uuid está dentro del campo 'file'
-        } else {
-          console.error('No se pudo obtener el UUID del archivo desde la API B (sin UUID en la respuesta)');
-          throw new Error('No se pudo obtener el UUID del archivo desde la API B.');
+          return response.data.file.uuid; //Retorna el UUID
         }
-      } else {
-        console.error('Error en la respuesta de la API B, código:', response.status);
-        throw new Error('Error en la respuesta de la API B, código: ' + response.status);
+        //Si no se encuentra el UUID en la respuesta
+        console.error('No se pudo obtener el UUID del archivo desde la API B (sin UUID en la respuesta)');
+        throw new Error('No se pudo obtener el UUID del archivo desde la API B.');
       }
+
+      console.error('Error en la respuesta de la API B, código:', response.status);
+      throw new Error(`Error en la respuesta de la API B, código: ${response.status}`);
     } catch (error) {
-      console.error('Error al enviar el archivo a la API B:', error.message);
-      throw new Error('Error al enviar el archivo a la API B: ' + error.message);
+      //Manejo de errores
+      console.error('Error al enviar el archivo a la API B:', error); 
+      throw new Error(`Error al enviar el archivo a la API B: ${error.message}`);
     }
   }
   
