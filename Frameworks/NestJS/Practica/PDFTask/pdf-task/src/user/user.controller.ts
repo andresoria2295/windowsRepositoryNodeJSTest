@@ -94,30 +94,31 @@ export class UserController {
     @Body() updatedData: PatchUserDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<void> {
-  
-    let identificador_archivo: string | null = null;
+    //Normaliza el campo contraseña si existe
+    if (updatedData['contraseÃ±a']) {
+      updatedData['contraseña'] = updatedData['contraseÃ±a'];
+      delete updatedData['contraseÃ±a'];
+    }
 
-  //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
-  if (updatedData['contraseÃ±a']) {
-    updatedData['contraseña'] = updatedData['contraseÃ±a'];
-    delete updatedData['contraseÃ±a'];
-  }
+    //Si hay un archivo, se agrega a formacion.archivo para que updateUserFields lo procese
+    if (file) {
+      console.log('Archivo recibido:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      });
+      
+      //Inicializa formacion si no existe
+      if (!updatedData.formacion) {
+        updatedData.formacion = {};
+      }
+      
+      //Agrega el archivo al objeto de formación
+      updatedData.formacion.archivo = file;
+    }
 
-  //Si se proporciona un archivo, se envía a la API B para obtener el UUID
-  if (file) {
-    identificador_archivo = await this.userService.sendFile(file, updatedData.nombre, updatedData.apellido);
-  }
-
-  //Agrega el UUID al campo formacion si se recibió
-  if (identificador_archivo) {
-    updatedData.formacion = {
-      ...updatedData.formacion,
-      identificador_archivo,
-    };
-  }
-
-  //Llama al método de servicio para manejar la actualización parcial
-  await this.userService.updateUserFields(id, updatedData);
+    //Llama al método de servicio que ya maneja la lógica de obtener nombre/apellido
+    await this.userService.updateUserFields(id, updatedData);
   }
   
   @Put('update-user/:id')

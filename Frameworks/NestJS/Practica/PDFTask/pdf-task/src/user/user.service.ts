@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as FormData from 'form-data';
-import { Readable } from 'node:stream';
+import { Readable } from 'stream';
 import axios from 'axios';
 import { Response } from 'express';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -29,62 +29,64 @@ export class UserService {
 }
 
 async sendFile(
-    file: Express.Multer.File, //Archivo subido (proporcionado por Multer)
-    nombreUsuario: string, 
-    apellidoUsuario: string, 
-  ): Promise<string> { //Retorna una promesa con el UUID del archivo
-    try {
-      const formData = new FormData(); //Crea una instancia de FormData para enviar archivos
+  file: Express.Multer.File, //Archivo subido (proporcionado por Multer)
+  nombreUsuario: string,
+  apellidoUsuario: string,
+): Promise<string> {
+  try {
+    const formData = new FormData(); //Crea una instancia de FormData para enviar archivos
 
-      //Agrega los datos del usuario al FormData
-      formData.append('nombre_usuario', nombreUsuario); 
-      formData.append('apellido_usuario', apellidoUsuario); 
+    //Agrega los datos del usuario al FormData
+    formData.append('nombre_usuario', nombreUsuario);
+    formData.append('apellido_usuario', apellidoUsuario);
 
-      //Agrega el archivo como Buffer al FormData
-      formData.append('file', file.buffer, { //Usa el buffer del archivo
-        filename: file.originalname, //Nombre original del archivo
-        contentType: file.mimetype, //Tipo MIME del archivo (ej. application/pdf)
-      });
+    //Crea un stream desde el buffer del archivo
+    const fileStream = Readable.from(file.buffer);
 
-      console.log('Datos a enviar:', { 
-        nombreUsuario,
-        apellidoUsuario,
-        fileName: file.originalname,
-      });
+    //Agrega el archivo como stream al FormData
+    formData.append('file', fileStream, {
+      filename: file.originalname, // Nombre original del archivo
+      contentType: file.mimetype,  // Tipo MIME del archivo (ej. application/pdf)
+      knownLength: file.size,      // Tamaño del archivo
+    });
 
-      //Realiza la solicitud a la API B
-      const response = await axios.post('http://localhost:4000/file/upload', formData, {
-        headers: {
-          ...formData.getHeaders(),
-        },
-        maxContentLength: Infinity, //Permite archivos de gran tamaño
-        maxBodyLength: Infinity, //Permite cuerpos de solicitud grandes
-      });
+    console.log('Datos a enviar:', {
+      nombreUsuario,
+      apellidoUsuario,
+      fileName: file.originalname,
+    });
 
-      console.log('Respuesta completa de la API B:', response.data); 
+    //Realiza la solicitud a la API B
+    const response = await axios.post('http://localhost:4000/file/upload', formData, {
+      headers: {
+        ...formData.getHeaders(), // Incluir los headers necesarios para FormData
+      },
+      maxContentLength: Infinity, // Permite archivos de gran tamaño
+      maxBodyLength: Infinity,    // Permite cuerpos de solicitud grandes
+    });
 
-      //Valida y retorna el UUID
-      if (response.status === 200 || response.status === 201) { 
-        if (response.data.uuid) { //Si el UUID está en response.data.uuid
-          console.log('UUID encontrado directamente en response.data.uuid:', response.data.uuid);
-          return response.data.uuid; //Retorna el UUID
-        } else if (response.data.file?.uuid) { //Si el UUID está en response.data.file.uuid
-          console.log('UUID encontrado dentro de response.data.file.uuid:', response.data.file.uuid);
-          return response.data.file.uuid; //Retorna el UUID
-        }
-        //Si no se encuentra el UUID en la respuesta
-        console.error('No se pudo obtener el UUID del archivo desde la API B (sin UUID en la respuesta)');
-        throw new Error('No se pudo obtener el UUID del archivo desde la API B.');
+    console.log('Respuesta completa de la API B:', response.data);
+
+    //Valida y retorna el UUID
+    if (response.status === 200 || response.status === 201) {
+      if (response.data.uuid) {
+        console.log('UUID encontrado directamente en response.data.uuid:', response.data.uuid);
+        return response.data.uuid;
+      } else if (response.data.file?.uuid) {
+        console.log('UUID encontrado dentro de response.data.file.uuid:', response.data.file.uuid);
+        return response.data.file.uuid;
       }
-
-      console.error('Error en la respuesta de la API B, código:', response.status);
-      throw new Error(`Error en la respuesta de la API B, código: ${response.status}`);
-    } catch (error) {
-      //Manejo de errores
-      console.error('Error al enviar el archivo a la API B:', error); 
-      throw new Error(`Error al enviar el archivo a la API B: ${error.message}`);
+      console.error('No se pudo obtener el UUID del archivo desde la API B (sin UUID en la respuesta)');
+      throw new Error('No se pudo obtener el UUID del archivo desde la API B.');
     }
+
+    console.error('Error en la respuesta de la API B, código:', response.status);
+    throw new Error(`Error en la respuesta de la API B, código: ${response.status}`);
+  } catch (error) {
+    console.error('Error al enviar el archivo a la API B:', error);
+    throw new Error(`Error al enviar el archivo a la API B: ${error.message}`);
   }
+}
   
   async getFile(filename: string, res: Response) {
     try {
@@ -419,177 +421,196 @@ async getSpecificUser(userId: number): Promise<any> {
 async updateUserFields(userId: number, data: PatchUserDto): Promise<void> {
   const client = await this.pool.connect();
   try {
-      await client.query('BEGIN');
-      console.log('Datos recibidos:', data);
+    await client.query('BEGIN');
 
-      // Mapeo de campos de la base de datos
-      const fieldMappings = {
-          usuario: {
-              nombre: 'Nombre',
-              apellido: 'Apellido',
-              fecha_nacimiento: 'Fecha_Nacimiento',
-              email: 'Email',
-              contraseña: 'Contraseña',
-          },
-          contacto: {
-              telefono: 'Telefono',
-              domicilio: 'Domicilio',
-              ciudad: 'Ciudad',
-              pais: 'Pais',
-          },
-          formacion: {
-              nombre: 'Nombre',
-              descripcion: 'Descripcion',
-              nivel: 'Nivel',
-              institucion: 'Institucion',
-              duracion: 'Duracion',
-              fecha_titulo: 'Fecha_Titulo',
-              activo: 'Activo',
-              identificador_archivo: 'Identificador_Archivo',
-          },
-          empresa: {
-              nombre: 'Nombre',
-              razon_social: 'Razon_Social',
-              direccion: 'Direccion',
-              ciudad: 'Ciudad',
-              pais: 'Pais',
-              telefono: 'Telefono',
-              email: 'Email',
-              sitio_web: 'Sitio_Web',
-              industria: 'Industria',
-              estado: 'Estado',
-          },
-          empleo: {
-              fecha_inicio: 'Fecha_Inicio',
-              fecha_fin: 'Fecha_Fin',
-              posicion: 'Posicion',
-              activo: 'Activo',
-          }
-      };
+    //Obtiene el nombre y apellido del usuario desde la base de datos
+    const userResult = await client.query(
+      'SELECT "Nombre", "Apellido" FROM "Usuario" WHERE "Id_Usuario" = $1',
+      [userId],
+    );
+    if (userResult.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    const { Nombre: nombre, Apellido: apellido } = userResult.rows[0];
 
-      // Separa los datos del usuario y contacto basados en el DTO
-      const usuarioData: Partial<PatchUserDto> = {
-          nombre: data.nombre,
-          apellido: data.apellido,
-          email: data.email,
-          fecha_nacimiento: data.fecha_nacimiento,
-          contraseña: data.contraseña
-      };
+    //Si se proporciona un archivo, se envía a la API B para obtener el UUID
+    if (data.formacion?.archivo) {
+      const identificador_archivo = await this.sendFile(data.formacion.archivo, nombre, apellido);
+      data.formacion.identificador_archivo = identificador_archivo;
+    }
 
-      const contactoData = {
-          telefono: data.telefono,
-          domicilio: data.domicilio,
-          ciudad: data.ciudad,
-          pais: data.pais
-      };
+    //Mapeo de campos de la base de datos
+    const fieldMappings = {
+      usuario: {
+        nombre: 'Nombre',
+        apellido: 'Apellido',
+        fecha_nacimiento: 'Fecha_Nacimiento',
+        email: 'Email',
+        contraseña: 'Contraseña',
+      },
+      contacto: {
+        telefono: 'Telefono',
+        domicilio: 'Domicilio',
+        ciudad: 'Ciudad',
+        pais: 'Pais',
+      },
+      formacion: {
+        nombre: 'Nombre',
+        descripcion: 'Descripcion',
+        nivel: 'Nivel',
+        institucion: 'Institucion',
+        duracion: 'Duracion',
+        fecha_titulo: 'Fecha_Titulo',
+        activo: 'Activo',
+        identificador_archivo: 'Identificador_Archivo',
+      },
+      empresa: {
+        nombre: 'Nombre',
+        razon_social: 'Razon_Social',
+        direccion: 'Direccion',
+        ciudad: 'Ciudad',
+        pais: 'Pais',
+        telefono: 'Telefono',
+        email: 'Email',
+        sitio_web: 'Sitio_Web',
+        industria: 'Industria',
+        estado: 'Estado',
+      },
+      empleo: {
+        fecha_inicio: 'Fecha_Inicio',
+        fecha_fin: 'Fecha_Fin',
+        posicion: 'Posicion',
+        activo: 'Activo',
+      },
+    };
 
-      // Elimina propiedades undefined
-      Object.keys(usuarioData).forEach(key => 
-          usuarioData[key] === undefined && delete usuarioData[key]
-      );
-      Object.keys(contactoData).forEach(key => 
-          contactoData[key] === undefined && delete contactoData[key]
-      );
+    //Separa los datos del usuario y contacto basados en el DTO
+    const usuarioData: Partial<PatchUserDto> = {
+      nombre: data.nombre,
+      apellido: data.apellido,
+      email: data.email,
+      fecha_nacimiento: data.fecha_nacimiento,
+      contraseña: data.contraseña,
+    };
 
-      // Función auxiliar para generar consultas de actualización
-      const generateUpdateQuery = (
-          tableName: string, 
-          data: Record<string, any>, 
-          whereColumn: string
-      ): { query: string; values: any[] } => {
-          const setClause = Object.keys(data)
-              .map((key, index) => `"${key}" = $${index + 1}`)
-              .join(', ');
-          const values = [...Object.values(data), userId];
-          const query = `
-              UPDATE "${tableName}" 
-              SET ${setClause}
-              WHERE "${whereColumn}" = $${Object.keys(data).length + 1}
-              RETURNING *
+    const contactoData = {
+      telefono: data.telefono,
+      domicilio: data.domicilio,
+      ciudad: data.ciudad,
+      pais: data.pais,
+    };
+
+    //Elimina propiedades undefined
+    Object.keys(usuarioData).forEach(
+      (key) => usuarioData[key] === undefined && delete usuarioData[key],
+    );
+    Object.keys(contactoData).forEach(
+      (key) => contactoData[key] === undefined && delete contactoData[key],
+    );
+
+    //Función auxiliar para generar consultas de actualización
+    const generateUpdateQuery = (
+      tableName: string,
+      data: Record<string, any>,
+      whereColumn: string,
+    ): { query: string; values: any[] } => {
+      const setClause = Object.keys(data)
+        .map((key, index) => `"${key}" = $${index + 1}`)
+        .join(', ');
+      const values = [...Object.values(data), userId];
+      const query = `
+        UPDATE "${tableName}" 
+        SET ${setClause}
+        WHERE "${whereColumn}" = $${Object.keys(data).length + 1}
+        RETURNING *
+      `;
+      return { query, values };
+    };
+
+    //Actualiza tabla Usuario
+    if (Object.keys(usuarioData).length > 0) {
+      const usuarioNormalized = this.normalizeFields(fieldMappings.usuario, usuarioData);
+      if (Object.keys(usuarioNormalized).length > 0) {
+        const { query, values } = generateUpdateQuery('Usuario', usuarioNormalized, 'Id_Usuario');
+        await client.query(query, values);
+      }
+    }
+
+    //Actualiza tabla Contacto
+    if (Object.keys(contactoData).length > 0) {
+      const contactoNormalized = this.normalizeFields(fieldMappings.contacto, contactoData);
+      if (Object.keys(contactoNormalized).length > 0) {
+        const checkContact = await client.query(
+          'SELECT * FROM "Contacto" WHERE "Id_Usuario" = $1',
+          [userId],
+        );
+
+        if (checkContact.rowCount === 0) {
+          const insertQuery = `
+            INSERT INTO "Contacto" ("Id_Usuario", ${Object.keys(contactoNormalized)
+              .map((k) => `"${k}"`)
+              .join(', ')})
+            VALUES ($1, ${Object.keys(contactoNormalized)
+              .map((_, i) => `$${i + 2}`)
+              .join(', ')})
+            RETURNING *
           `;
-          return { query, values };
-      };
-
-      // Actualiza tabla Usuario
-      if (Object.keys(usuarioData).length > 0) {
-          const usuarioNormalized = this.normalizeFields(fieldMappings.usuario, usuarioData);
-          if (Object.keys(usuarioNormalized).length > 0) {
-              const { query, values } = generateUpdateQuery('Usuario', usuarioNormalized, 'Id_Usuario');
-              await client.query(query, values);
-          }
+          await client.query(insertQuery, [userId, ...Object.values(contactoNormalized)]);
+        } else {
+          const { query, values } = generateUpdateQuery('Contacto', contactoNormalized, 'Id_Usuario');
+          await client.query(query, values);
+        }
       }
+    }
 
-      // Actualiza tabla Contacto
-      if (Object.keys(contactoData).length > 0) {
-          const contactoNormalized = this.normalizeFields(fieldMappings.contacto, contactoData);
-          if (Object.keys(contactoNormalized).length > 0) {
-              const checkContact = await client.query(
-                  'SELECT * FROM "Contacto" WHERE "Id_Usuario" = $1',
-                  [userId]
-              );
+    //Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
+    const empleoResult = await client.query(
+      `SELECT "Id_Formacion", "Id_Empresa" FROM "Empleo" WHERE "Id_Usuario" = $1`,
+      [userId],
+    );
+    const { Id_Formacion, Id_Empresa } = empleoResult.rows[0] || {};
 
-              if (checkContact.rowCount === 0) {
-                  const insertQuery = `
-                      INSERT INTO "Contacto" ("Id_Usuario", ${Object.keys(contactoNormalized).map(k => `"${k}"`).join(', ')})
-                      VALUES ($1, ${Object.keys(contactoNormalized).map((_, i) => `$${i + 2}`).join(', ')})
-                      RETURNING *
-                  `;
-                  await client.query(insertQuery, [userId, ...Object.values(contactoNormalized)]);
-              } else {
-                  const { query, values } = generateUpdateQuery('Contacto', contactoNormalized, 'Id_Usuario');
-                  await client.query(query, values);
-              }
-          }
+    //Actualiza tabla Empleo
+    if (data.empleo) {
+      const empleoData = this.normalizeFields(fieldMappings.empleo, data.empleo);
+      if (Object.keys(empleoData).length > 0) {
+        const { query, values } = generateUpdateQuery('Empleo', empleoData, 'Id_Usuario');
+        await client.query(query, values);
       }
+    }
 
-      // Obtiene Id_Formacion e Id_Empresa desde la tabla Empleo
-      const empleoResult = await client.query(
-          `SELECT "Id_Formacion", "Id_Empresa" FROM "Empleo" WHERE "Id_Usuario" = $1`,
-          [userId]
-      );
-      const { Id_Formacion, Id_Empresa } = empleoResult.rows[0] || {};
-
-      // Actualiza tabla Empleo
-      if (data.empleo) {
-          const empleoData = this.normalizeFields(fieldMappings.empleo, data.empleo);
-          if (Object.keys(empleoData).length > 0) {
-              const { query, values } = generateUpdateQuery('Empleo', empleoData, 'Id_Usuario');
-              await client.query(query, values);
-          }
+    //Actualiza tabla Formacion
+    if (data.formacion && Id_Formacion) {
+      const formacionData = this.normalizeFields(fieldMappings.formacion, data.formacion);
+      if (Object.keys(formacionData).length > 0) {
+        const { query, values } = generateUpdateQuery('Formacion', formacionData, 'Id_Formacion');
+        await client.query(query, [...values.slice(0, -1), Id_Formacion]);
       }
+    }
 
-      // Actualiza tabla Formacion
-      if (data.formacion && Id_Formacion) {
-          const formacionData = this.normalizeFields(fieldMappings.formacion, data.formacion);
-          if (Object.keys(formacionData).length > 0) {
-              const { query, values } = generateUpdateQuery('Formacion', formacionData, 'Id_Formacion');
-              await client.query(query, [...values.slice(0, -1), Id_Formacion]);
-          }
+    //Actualiza tabla Empresa
+    if (data.empresa && Id_Empresa) {
+      const empresaData = this.normalizeFields(fieldMappings.empresa, data.empresa);
+      if (Object.keys(empresaData).length > 0) {
+        const { query, values } = generateUpdateQuery('Empresa', empresaData, 'Id_Empresa');
+        await client.query(query, [...values.slice(0, -1), Id_Empresa]);
       }
+    }
 
-      // Actualiza tabla Empresa
-      if (data.empresa && Id_Empresa) {
-          const empresaData = this.normalizeFields(fieldMappings.empresa, data.empresa);
-          if (Object.keys(empresaData).length > 0) {
-              const { query, values } = generateUpdateQuery('Empresa', empresaData, 'Id_Empresa');
-              await client.query(query, [...values.slice(0, -1), Id_Empresa]);
-          }
-      }
-
-      await client.query('COMMIT');
+    await client.query('COMMIT');
   } catch (error) {
-      await client.query('ROLLBACK');
-      console.error('Error al actualizar los datos del usuario:', error);
-      console.error('Error detallado:', {
-          message: error.message,
-          stack: error.stack,
-          detail: error.detail,
-          where: error.where,
-          code: error.code
-      });
-      throw new Error('Error al actualizar los datos del usuario: ' + error.message);
+    await client.query('ROLLBACK');
+    console.error('Error al actualizar los datos del usuario:', error);
+    console.error('Error detallado:', {
+      message: error.message,
+      stack: error.stack,
+      detail: error.detail,
+      where: error.where,
+      code: error.code,
+    });
+    throw new Error('Error al actualizar los datos del usuario: ' + error.message);
   } finally {
-      client.release();
+    client.release();
   }
 }
 

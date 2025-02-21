@@ -33,7 +33,10 @@ import { Type } from 'class-transformer';
     @IsOptional()
     @IsString()
     identificador_archivo?: string;
-  }
+
+    @IsOptional()
+    archivo?: Express.Multer.File;
+}
   
   class PatchEmpresaDto {
     @IsOptional()
