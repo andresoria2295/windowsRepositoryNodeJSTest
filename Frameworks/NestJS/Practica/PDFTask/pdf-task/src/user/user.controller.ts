@@ -1,5 +1,5 @@
 import { Controller, Get, Res, Body, Post, Put, Patch, Param, 
-    BadRequestException, Delete, ParseIntPipe, UseInterceptors, 
+    BadRequestException, NotFoundException, Delete, ParseIntPipe, UseInterceptors, 
     UploadedFile, InternalServerErrorException, Query, HttpStatus } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Response } from 'express';
@@ -117,44 +117,70 @@ export class UserController {
       updatedData.formacion.archivo = file;
     }
 
-    //Llama al método de servicio que ya maneja la lógica de obtener nombre/apellido
+    //Llamar al método de servicio que ya maneja la lógica de obtener nombre/apellido
     await this.userService.updateUserFields(id, updatedData);
   }
   
   @Put('update-user/:id')
-    @UseInterceptors(FileInterceptor('file'))
-    async updateUser(
-      @Param('id', ParseIntPipe) id: number,
-      @Body() updateUserDto: UpdateUserDto,
-      @UploadedFile() file: Express.Multer.File,
-    ): Promise<{ message: string }> {
-      let identificador_archivo: string | null = null;
+  @UseInterceptors(FileInterceptor('file'))
+  async updateUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ message: string }> {
+    let identificador_archivo: string | null = null;
 
-      //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
-      if (updateUserDto['contraseÃ±a']) {
-        updateUserDto['contraseña'] = updateUserDto['contraseÃ±a'];
-        delete updateUserDto['contraseÃ±a'];
-      }
-
-      // Verifica si se recibió un archivo
-      if (file) {
-        // Envía el archivo a la API B y obtiene el UUID
-        identificador_archivo = await this.userService.sendFile(file, updateUserDto.nombre, updateUserDto.apellido);
-      }
-
-      // Agrega el UUID al campo correspondiente en `formacion` si hay archivo
-      if (identificador_archivo) {
-        updateUserDto.formacion = {
-          ...updateUserDto.formacion,
-          identificador_archivo,
-        };
-      }
-
-      // Llama al servicio para actualizar el usuario con el DTO actualizado
-      await this.userService.updateUser(id, updateUserDto);
-
-      return { message: `Usuario con ID ${id} actualizado exitosamente.` };
+    //Normaliza el nombre del campo 'contraseÃ±a' a 'contraseña'
+    if (updateUserDto['contraseÃ±a']) {
+      updateUserDto['contraseña'] = updateUserDto['contraseÃ±a'];
+      delete updateUserDto['contraseÃ±a'];
     }
+
+    //Verifica si se recibió un archivo
+    if (file) {
+      try {
+        //Si no hay nombre y apellido en el DTO, se adquieren los datos del usuario.
+        if (!updateUserDto.nombre || !updateUserDto.apellido) {
+          const userData = await this.userService.getUserById(id);
+          if (!userData) {
+            throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+          }
+          
+          //Uso de los datos existentes si no están en el DTO
+          const nombre = updateUserDto.nombre || userData.Nombre;
+          const apellido = updateUserDto.apellido || userData.Apellido;
+          
+          //Envío de archivo a la API B con los datos correctos
+          identificador_archivo = await this.userService.sendFile(file, nombre, apellido);
+        } else {
+          //Si hay nombre y apellido en el DTO, se los usa directamente
+          identificador_archivo = await this.userService.sendFile(
+            file, 
+            updateUserDto.nombre, 
+            updateUserDto.apellido
+          );
+        }
+        
+        //Agrega el UUID al campo correspondiente en `formacion`
+        if (identificador_archivo) {
+          updateUserDto.formacion = {
+            ...updateUserDto.formacion,
+            identificador_archivo,
+          };
+        }
+      } catch (error) {
+        console.error('Error al procesar el archivo:', error);
+        throw new BadRequestException(
+          `Error al procesar el archivo: ${error.message}`
+        );
+      }
+    }
+
+    //Llama al servicio para actualizar el usuario con el DTO actualizado
+    await this.userService.updateUser(id, updateUserDto);
+
+    return { message: `Usuario con ID ${id} actualizado exitosamente.` };
+  }
     
   @Delete('/delete-user/:userId')
   async deleteUser(@Param() params: DeleteUserDto,  @Res() res: Response): Promise<void> {

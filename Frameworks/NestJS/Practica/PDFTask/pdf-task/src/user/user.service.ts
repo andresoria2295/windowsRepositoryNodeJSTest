@@ -150,6 +150,25 @@ async sendFile(
     }
   }  
 
+//Método para obtener usuario por ID
+async getUserById(userId: number): Promise<any> {
+  try {
+    const result = await this.pool.query(
+      'SELECT "Nombre", "Apellido" FROM "Usuario" WHERE "Id_Usuario" = $1',
+      [userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error al obtener usuario por ID:', error);
+    throw new Error(`Error al obtener usuario: ${error.message}`);
+  }
+}
+
   //Método para creación de usuarios
   async createUser(newUserData: CreateUserDto, file?: Express.Multer.File): Promise<void> {
     const {
